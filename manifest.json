@@ -1,7 +1,7 @@
 {
     "name": "BrainDump",
     "short_name": "BrainDump",
-    "start_url": "/braindump/",
+    "start_url": "https://minijohan.github.io/BrainDump/",
     "display": "standalone",
     "background_color": "#0f0f0f",
     "theme_color": "#0f0f0f",
