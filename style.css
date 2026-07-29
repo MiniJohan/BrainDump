@@ -110,10 +110,8 @@ body {
 }
 
 .thought {
-    display: flex;
-    align-items: center;
-    padding: 14px 0;
-    gap: 14px;
+    position: relative;
+    overflow: hidden;
     text-transform: capitalize;
     -webkit-tap-highlight-color: transparent;
 }
@@ -127,7 +125,18 @@ body {
     to { opacity: 1; transform: translateY(0px); }
 }
 
-.thought:last-child {
+.thought-content {
+    display: flex;
+    align-items: center;
+    padding: 14px 0;
+    gap: 14px;
+    background: var(--bg);
+    position: relative;
+    z-index: 1;
+    border-bottom: 0.5px solid var(--border);
+}
+
+.thought:last-child .thought-content {
     border-bottom: none;
 }
 
@@ -152,6 +161,19 @@ body {
 .thought.done span {
     text-decoration: line-through;
     text-decoration-color: var(--text);
+}
+
+.delete-reveal {
+    position: absolute;
+    right: 16px;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    z-index: 0;
 }
 
 .checkbox {

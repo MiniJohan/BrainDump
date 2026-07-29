@@ -46,6 +46,13 @@ function createThoughtEl(t, isNew = false) {
         }, { once: true });
     }
 
+    const deleteReveal = document.createElement('div');
+    deleteReveal.className = 'delete-reveal';
+    deleteReveal.textContent = 'delete';
+
+    const content = document.createElement('div');
+    content.className = 'thought-content';
+
     const checkbox = document.createElement('div');
     checkbox.className = 'checkbox' + (t.done ? ' checked' : '');
     checkbox.addEventListener('click', () => toggleThought(t.id));
@@ -54,8 +61,13 @@ function createThoughtEl(t, isNew = false) {
     span.textContent = t.text;
     span.addEventListener('click', () => editThought(t.id, span));
 
-    div.appendChild(checkbox);
-    div.appendChild(span);
+    content.appendChild(checkbox);
+    content.appendChild(span);
+    div.appendChild(deleteReveal);
+    div.appendChild(content);
+
+    addSwipeDelete(div, content, t.id);
+
     return div;
 }
 
@@ -154,6 +166,77 @@ function editThought(id, span) {
     });
 
     span.addEventListener('blur', save, { once: true });
+}
+
+function addSwipeDelete(el, content, id) {
+    let startX = 0;
+    let startY = 0;
+    let currentX = 0;
+    let isSwiping = false;
+    let isScrolling = false;
+
+    el.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        currentX = 0;
+        isSwiping = false;
+        isScrolling = false;
+        content.style.transition = '';
+    }, { passive: true });
+
+    el.addEventListener('touchmove', (e) => {
+        const deltaX = e.touches[0].clientX - startX;
+        const deltaY = e.touches[0].clientY - startY;
+
+        if (!isSwiping && !isScrolling) {
+            if (Math.abs(deltaY) > Math.abs(deltaX)) {
+                isScrolling = true;
+                return;
+            }
+            if (Math.abs(deltaX) > 6) isSwiping = true;
+        }
+
+        if (!isSwiping || isScrolling || deltaX > 0) return;
+
+        e.preventDefault();
+        currentX = deltaX;
+        content.style.transform = `translateX(${deltaX}px)`;
+    }, { passive: false });
+
+    el.addEventListener('touchend', () => {
+        if (!isSwiping) return;
+
+        if (currentX < -80) {
+            content.style.transition = 'transform 0.2s ease';
+            content.style.transform = 'translateX(-110%)';
+
+            setTimeout(() => {
+                el.style.transition = 'max-height 0.2s ease, opacity 0.2s ease';
+                el.style.maxHeight = el.offsetHeight + 'px';
+                el.style.overflow = 'hidden';
+                requestAnimationFrame(() => {
+                    el.style.maxHeight = '0';
+                    el.style.opacity = '0';
+                });
+            }, 180);
+
+            setTimeout(async () => {
+                el.remove();
+                if (!thoughtsEl.querySelector('.thought')) {
+                    thoughtsEl.innerHTML = '<p class="empty">nothing yet.</p>';
+                }
+                await db.from('thoughts').delete().eq('id', id);
+            }, 400);
+
+        } else {
+            content.style.transition = 'transform 0.2s ease';
+            content.style.transform = 'translateX(0)';
+            setTimeout(() => {
+                content.style.transition = '';
+                content.style.transform = '';
+            }, 200);
+        }
+    }, { passive: true });
 }
 
 // ─── Voice ────────────────────────────────────────────────
