@@ -296,47 +296,49 @@ function editThought(id, span) {
 // │  VOICE                                  │
 // └─────────────────────────────────────────┘
 
-function setupVoice() {
+function buildRecognition() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { micBtn.style.display = 'none'; return; }
+    if (!SR) { micBtn.style.display = 'none'; return null; }
 
-    recognition = new SR();
-    recognition.continuous     = true;
-    recognition.interimResults = true;
-    recognition.lang           = 'sv-SE';
+    const rec = new SR();
+    rec.continuous     = true;
+    rec.interimResults = true;
+    rec.lang           = 'sv-SE';
 
-    recognition.onresult = (e) => {
-    clearTimeout(silenceTimer);
+    rec.onresult = (e) => {
+        clearTimeout(silenceTimer);
 
-    let interim = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-        const text = e.results[i][0].transcript;
-        if (e.results[i].isFinal) {
-            finalTranscript += text.trim() + ', ';
-        } else {
-            interim = text;
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+            const text = e.results[i][0].transcript;
+            if (e.results[i].isFinal) {
+                finalTranscript += text.trim() + ', ';
+            } else {
+                interim = text;
+            }
         }
-    }
 
-    inputEl.value = finalTranscript + interim;
-    inputEl.style.height = 'auto';
-    inputEl.style.height = inputEl.scrollHeight + 'px';
+        inputEl.value = finalTranscript + interim;
+        inputEl.style.height = 'auto';
+        inputEl.style.height = inputEl.scrollHeight + 'px';
 
-    silenceTimer = setTimeout(() => {
-        if (isListening) recognition.stop();
-    }, 4000);
-};
+        // ─── Long silence → auto stop ─────────────────────
+        silenceTimer = setTimeout(() => {
+            if (isListening) rec.stop();
+        }, 4000);
+    };
 
-    recognition.onend = () => {
+    rec.onend = () => {
         isListening = false;
         micBtn.classList.remove('listening');
         inputEl.style.fontStyle = '';
         clearTimeout(silenceTimer);
         finalTranscript = '';
-        dump();
+        // ─── Delay lets last onresult fire before dump ────
+        setTimeout(() => dump(), 150);
     };
 
-    recognition.onerror = () => {
+    rec.onerror = () => {
         isListening = false;
         micBtn.classList.remove('listening');
         inputEl.style.fontStyle = '';
@@ -344,15 +346,20 @@ function setupVoice() {
         finalTranscript = '';
         inputEl.value = '';
     };
+
+    return rec;
 }
 
 micBtn.addEventListener('click', () => {
+    // ─── Lazy init — only creates on first tap ────────────
+    if (!recognition) recognition = buildRecognition();
     if (!recognition) return;
+
     if (isListening) {
         recognition.stop();
     } else {
-        finalTranscript = '';
-        inputEl.value   = '';
+        finalTranscript     = '';
+        inputEl.value       = '';
         inputEl.style.fontStyle = 'italic';
         micBtn.classList.add('listening');
         recognition.start();
@@ -366,5 +373,4 @@ micBtn.addEventListener('click', () => {
 // │  BOOT                                   │
 // └─────────────────────────────────────────┘
 
-setupVoice();
 loadThoughts();
