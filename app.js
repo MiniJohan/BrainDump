@@ -236,19 +236,39 @@ function setupVoice() {
     if (!SR) { micBtn.style.display = 'none'; return; }
 
     recognition = new SR();
-    recognition.continuous = false;
+    recognition.continuous     = true;
     recognition.interimResults = true;
-    recognition.lang = 'sv-SE';
+    recognition.lang           = 'en-US';
+
+    let finalTranscript = '';
 
     recognition.onresult = (e) => {
-        const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
-        inputEl.value = transcript;
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+            const text = e.results[i][0].transcript;
+            if (e.results[i].isFinal) {
+                finalTranscript += text + ', ';
+            } else {
+                interim = text;
+            }
+        }
+        inputEl.value = finalTranscript + interim;
         inputEl.style.height = 'auto';
         inputEl.style.height = inputEl.scrollHeight + 'px';
     };
 
-    recognition.onend  = () => { isListening = false; micBtn.classList.remove('listening'); dump(); };
-    recognition.onerror = () => { isListening = false; micBtn.classList.remove('listening'); };
+    recognition.onend = () => {
+        isListening = false;
+        micBtn.classList.remove('listening');
+        finalTranscript = '';
+        dump();
+    };
+
+    recognition.onerror = () => {
+        isListening = false;
+        micBtn.classList.remove('listening');
+        finalTranscript = '';
+    };
 }
 
 micBtn.addEventListener('click', () => {
