@@ -1,6 +1,7 @@
 // ┌─────────────────────────────────────────┐
 // │  CONFIG                                 │
 // └─────────────────────────────────────────┘
+
 const { createClient } = supabase;
 const db = createClient('https://dmmmpijwxynzmojlnuqr.supabase.co', 'sb_publishable_Ahf30a1YFkbifXcA-AoasA_roTpTpbw');
 
@@ -10,12 +11,12 @@ const db = createClient('https://dmmmpijwxynzmojlnuqr.supabase.co', 'sb_publisha
 // │  STATE                                  │
 // └─────────────────────────────────────────┘
 
-let isSearchMode        = false;
-
-let recognition         = null;
-let isListening         = false;
-let holdTimer           = null;
-let finalTranscript     = '';
+let isSearchMode    = false;
+let recognition     = null;
+let isListening     = false;
+let finalTranscript = '';
+let silenceTimer    = null;
+let interimTimer    = null;
 
 
 
@@ -25,8 +26,8 @@ let finalTranscript     = '';
 
 const thoughtsEl = document.getElementById('thoughts');
 const inputEl    = document.getElementById('input');
+const micBtn     = document.getElementById('mic-btn');
 
-const micBtn = document.getElementById('mic-btn');
 
 
 // ┌─────────────────────────────────────────┐
@@ -42,13 +43,13 @@ async function loadThoughts() {
     render(data || []);
 }
 
-// ─── Full render — initial load only ─────────────────────
 function render(thoughts) {
     thoughtsEl.innerHTML = '';
     thoughts.forEach(t => thoughtsEl.appendChild(createThoughtEl(t, false)));
 }
 
 // ─── Build one element ────────────────────────────────────
+
 function createThoughtEl(t, isNew = false) {
     const div = document.createElement('div');
     div.className = 'thought' +
@@ -111,7 +112,6 @@ inputEl.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
         e.preventDefault();
         if (isSearchMode) {
-            // Exit search on enter
             inputEl.value = '';
             inputEl.style.fontStyle = '';
             isSearchMode = false;
@@ -152,9 +152,9 @@ async function toggleThought(id) {
 // └─────────────────────────────────────────┘
 
 function addSwipeDelete(el, id) {
-    let startX    = 0;
-    let startY    = 0;
-    let startTime = 0;
+    let startX       = 0;
+    let startY       = 0;
+    let startTime    = 0;
     let isScrolling  = false;
     let isDetermined = false;
 
@@ -197,9 +197,9 @@ function dismissThought(el, id) {
     el.style.transform  = 'scale(0.97)';
 
     setTimeout(() => {
-        el.style.overflow   = 'hidden';
-        el.style.height     = el.offsetHeight + 'px';
-        el.style.paddingTop = '0';
+        el.style.overflow      = 'hidden';
+        el.style.height        = el.offsetHeight + 'px';
+        el.style.paddingTop    = '0';
         el.style.paddingBottom = '0';
 
         requestAnimationFrame(() => {
@@ -294,67 +294,8 @@ function editThought(id, span) {
 
 
 // ┌─────────────────────────────────────────┐
-// │  COLLAPSE DONE                          │
-// └─────────────────────────────────────────┘
-
-function updateDoneCounter() {
-    const existing = thoughtsEl.querySelector('.done-counter');
-    if (existing) existing.remove();
-
-    const doneEls = [...thoughtsEl.querySelectorAll('.thought.done')];
-    if (doneEls.length === 0) return;
-
-    doneEls.forEach(el => {
-        el.style.display = doneCollapsed ? 'none' : '';
-    });
-
-    const counter = document.createElement('div');
-    counter.className = 'done-counter';
-
-    // ─── Toggle label ─────────────────────────────────────
-    const label = document.createElement('span');
-    label.className   = 'counter-label';
-    label.textContent = doneCollapsed ? `${doneEls.length} done` : 'hide done';
-    label.addEventListener('click', () => {
-        doneCollapsed = !doneCollapsed;
-        updateDoneCounter();
-    });
-    counter.appendChild(label);
-
-    // ─── Clear option — only when collapsed ───────────────
-    if (doneCollapsed) {
-        const sep = document.createElement('span');
-        sep.className   = 'counter-sep';
-        sep.textContent = '·';
-
-        const clearEl = document.createElement('span');
-        clearEl.className   = 'counter-clear';
-        clearEl.textContent = 'clear';
-        clearEl.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            const ids = doneEls.map(el => el.dataset.id);
-            doneEls.forEach(el => el.remove());
-            counter.remove();
-            await db.from('thoughts').delete().in('id', ids);
-        });
-
-        counter.appendChild(sep);
-        counter.appendChild(clearEl);
-    }
-
-    thoughtsEl.appendChild(counter);
-}
-
-
-
-// ┌─────────────────────────────────────────┐
 // │  VOICE                                  │
 // └─────────────────────────────────────────┘
-
-let recognition    = null;
-let isListening    = false;
-let silenceTimer   = null;
-let interimTimer   = null;
 
 function setupVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
