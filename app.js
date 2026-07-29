@@ -46,13 +46,6 @@ function createThoughtEl(t, isNew = false) {
         }, { once: true });
     }
 
-    const deleteReveal = document.createElement('div');
-    deleteReveal.className = 'delete-reveal';
-    deleteReveal.textContent = 'delete';
-
-    const content = document.createElement('div');
-    content.className = 'thought-content';
-
     const checkbox = document.createElement('div');
     checkbox.className = 'checkbox' + (t.done ? ' checked' : '');
     checkbox.addEventListener('click', () => toggleThought(t.id));
@@ -61,42 +54,44 @@ function createThoughtEl(t, isNew = false) {
     span.textContent = t.text;
     span.addEventListener('click', () => editThought(t.id, span));
 
-    content.appendChild(checkbox);
-    content.appendChild(span);
-    div.appendChild(deleteReveal);
-    div.appendChild(content);
+    div.appendChild(checkbox);
+    div.appendChild(span);
 
-    addSwipeDelete(div, content, t.id);
+    addSwipeDelete(div, t.id);
 
     return div;
 }
 
 // ─── Dump ─────────────────────────────────────────────────
-inputEl.addEventListener('keydown', async (e) => {
+async function dump() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+
+    const empty = thoughtsEl.querySelector('.empty');
+    if (empty) empty.remove();
+
+    const items = text.split(/[,;\n]+/)
+        .map(i => i.trim())
+        .filter(i => i)
+        .map(i => ({ text: i, urgent: false, done: false }));
+
+    const { data } = await db
+        .from('thoughts')
+        .insert(items)
+        .select();
+
+    if (data) {
+        data.forEach(t => thoughtsEl.appendChild(createThoughtEl(t, true)));
+    }
+}
+
+inputEl.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
         e.preventDefault();
-        const text = inputEl.value.trim();
-        if (!text) return;
-
-        inputEl.value = '';
-        inputEl.style.height = 'auto';
-
-        const empty = thoughtsEl.querySelector('.empty');
-        if (empty) empty.remove();
-
-        const items = text.split(/[,;\n]+/)
-            .map(i => i.trim())
-            .filter(i => i)
-            .map(i => ({ text: i, done: false, urgent: false }));
-
-        const { data } = await db
-            .from('thoughts')
-            .insert(items)
-            .select();
-
-        if (data) {
-            data.forEach(t => thoughtsEl.appendChild(createThoughtEl(t, true)));
-        }
+        dump();
     }
 });
 
@@ -168,75 +163,68 @@ function editThought(id, span) {
     span.addEventListener('blur', save, { once: true });
 }
 
-function addSwipeDelete(el, content, id) {
-    let startX = 0;
-    let startY = 0;
-    let currentX = 0;
-    let isSwiping = false;
-    let isScrolling = false;
+function addSwipeDelete(el, id) {
+    let startX    = 0;
+    let startY    = 0;
+    let startTime = 0;
+    let isScrolling  = false;
+    let isDetermined = false;
 
     el.addEventListener('touchstart', (e) => {
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
-        currentX = 0;
-        isSwiping = false;
-        isScrolling = false;
-        content.style.transition = '';
+        startX       = e.touches[0].clientX;
+        startY       = e.touches[0].clientY;
+        startTime    = Date.now();
+        isScrolling  = false;
+        isDetermined = false;
     }, { passive: true });
 
     el.addEventListener('touchmove', (e) => {
         const deltaX = e.touches[0].clientX - startX;
         const deltaY = e.touches[0].clientY - startY;
 
-        if (!isSwiping && !isScrolling) {
-            if (Math.abs(deltaY) > Math.abs(deltaX)) {
-                isScrolling = true;
-                return;
-            }
-            if (Math.abs(deltaX) > 6) isSwiping = true;
+        if (!isDetermined) {
+            if (Math.abs(deltaY) > Math.abs(deltaX)) isScrolling = true;
+            isDetermined = true;
         }
 
-        if (!isSwiping || isScrolling || deltaX > 0) return;
-
-        e.preventDefault();
-        currentX = deltaX;
-        content.style.transform = `translateX(${deltaX}px)`;
+        if (!isScrolling && deltaX < 0) e.preventDefault();
     }, { passive: false });
 
-    el.addEventListener('touchend', () => {
-        if (!isSwiping) return;
+    el.addEventListener('touchend', (e) => {
+        if (isScrolling) return;
 
-        if (currentX < -80) {
-            content.style.transition = 'transform 0.2s ease';
-            content.style.transform = 'translateX(-110%)';
+        const deltaX   = e.changedTouches[0].clientX - startX;
+        const elapsed  = Date.now() - startTime;
+        const velocity = Math.abs(deltaX) / elapsed;
 
-            setTimeout(() => {
-                el.style.transition = 'max-height 0.2s ease, opacity 0.2s ease';
-                el.style.maxHeight = el.offsetHeight + 'px';
-                el.style.overflow = 'hidden';
-                requestAnimationFrame(() => {
-                    el.style.maxHeight = '0';
-                    el.style.opacity = '0';
-                });
-            }, 180);
-
-            setTimeout(async () => {
-                el.remove();
-                if (!thoughtsEl.querySelector('.thought')) {
-                    thoughtsEl.innerHTML = '<p class="empty">nothing yet.</p>';
-                }
-                await db.from('thoughts').delete().eq('id', id);
-            }, 400);
-
-        } else {
-            content.style.transition = 'transform 0.2s ease';
-            content.style.transform = 'translateX(0)';
-            setTimeout(() => {
-                content.style.transition = '';
-                content.style.transform = '';
-            }, 200);
+        if (deltaX < -30 && velocity > 0.3) {
+            dismissThought(el, id);
         }
     }, { passive: true });
+}
+
+function dismissThought(el, id) {
+    // Fade and scale down
+    el.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+    el.style.opacity    = '0';
+    el.style.transform  = 'scale(0.97)';
+
+    // Collapse height after fade
+    setTimeout(() => {
+        el.style.transition = 'max-height 0.2s ease';
+        el.style.maxHeight  = el.offsetHeight + 'px';
+        el.style.overflow   = 'hidden';
+        requestAnimationFrame(() => { el.style.maxHeight = '0'; });
+    }, 200);
+
+    // Remove from DOM and delete from Supabase
+    setTimeout(async () => {
+        el.remove();
+        if (!thoughtsEl.querySelector('.thought')) {
+            thoughtsEl.innerHTML = '<p class="empty">nothing yet.</p>';
+        }
+        await db.from('thoughts').delete().eq('id', id);
+    }, 400);
 }
 
 // ─── Voice ────────────────────────────────────────────────
@@ -250,7 +238,7 @@ function setupVoice() {
     recognition = new SR();
     recognition.continuous = false;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    recognition.lang = 'sv-SE';
 
     recognition.onresult = (e) => {
         const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
@@ -259,7 +247,7 @@ function setupVoice() {
         inputEl.style.height = inputEl.scrollHeight + 'px';
     };
 
-    recognition.onend  = () => { isListening = false; micBtn.classList.remove('listening'); };
+    recognition.onend  = () => { isListening = false; micBtn.classList.remove('listening'); dump(); };
     recognition.onerror = () => { isListening = false; micBtn.classList.remove('listening'); };
 }
 
