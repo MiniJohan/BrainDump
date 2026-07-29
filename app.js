@@ -238,7 +238,7 @@ function setupVoice() {
     recognition = new SR();
     recognition.continuous     = true;
     recognition.interimResults = true;
-    recognition.lang           = 'en-US';
+    recognition.lang           = 'sv-SE';
 
     let finalTranscript = '';
 
