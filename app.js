@@ -194,22 +194,30 @@ function addSwipeDelete(el, id) {
 }
 
 function dismissThought(el, id) {
+    const height = el.offsetHeight;
+
+    // ─── Fade out ─────────────────────────────────────────
     el.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
     el.style.opacity    = '0';
     el.style.transform  = 'scale(0.97)';
 
     setTimeout(() => {
-        el.style.transition = 'max-height 0.2s ease';
-        el.style.maxHeight  = el.offsetHeight + 'px';
+        // ─── Lock explicit height then collapse ───────────
+        el.style.transition = 'none';
         el.style.overflow   = 'hidden';
-        requestAnimationFrame(() => { el.style.maxHeight = '0'; });
+        el.style.height     = height + 'px';
+
+        el.offsetHeight; // force reflow — browser registers height before transition
+
+        el.style.transition = 'height 0.22s ease';
+        el.style.height     = '0';
     }, 200);
 
     setTimeout(async () => {
         el.remove();
         updateDoneCounter();
         await db.from('thoughts').delete().eq('id', id);
-    }, 400);
+    }, 430);
 }
 
 
@@ -300,22 +308,43 @@ function updateDoneCounter() {
     const doneEls = [...thoughtsEl.querySelectorAll('.thought.done')];
     if (doneEls.length === 0) return;
 
-    // Hide or show done items
     doneEls.forEach(el => {
         el.style.display = doneCollapsed ? 'none' : '';
     });
 
-    // Counter label
     const counter = document.createElement('div');
-    counter.className   = 'done-counter';
-    counter.textContent = doneCollapsed
-        ? `${doneEls.length} done`
-        : 'hide done';
+    counter.className = 'done-counter';
 
-    counter.addEventListener('click', () => {
+    // ─── Toggle label ─────────────────────────────────────
+    const label = document.createElement('span');
+    label.className   = 'counter-label';
+    label.textContent = doneCollapsed ? `${doneEls.length} done` : 'hide done';
+    label.addEventListener('click', () => {
         doneCollapsed = !doneCollapsed;
         updateDoneCounter();
     });
+    counter.appendChild(label);
+
+    // ─── Clear option — only when collapsed ───────────────
+    if (doneCollapsed) {
+        const sep = document.createElement('span');
+        sep.className   = 'counter-sep';
+        sep.textContent = '·';
+
+        const clearEl = document.createElement('span');
+        clearEl.className   = 'counter-clear';
+        clearEl.textContent = 'clear';
+        clearEl.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const ids = doneEls.map(el => el.dataset.id);
+            doneEls.forEach(el => el.remove());
+            counter.remove();
+            await db.from('thoughts').delete().in('id', ids);
+        });
+
+        counter.appendChild(sep);
+        counter.appendChild(clearEl);
+    }
 
     thoughtsEl.appendChild(counter);
 }

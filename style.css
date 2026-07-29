@@ -159,3 +159,31 @@ body {
     -webkit-tap-highlight-color: transparent;
     transition: color 0.25s ease;
 }
+
+.done-counter {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 14px 0;
+    font-size: 13px;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.counter-label {
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+
+.counter-sep {
+    color: var(--border);
+    padding: 0 10px;
+}
+
+.counter-clear {
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.15s ease;
+    font-size: 13px;
+}
