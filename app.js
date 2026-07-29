@@ -16,7 +16,6 @@ let recognition     = null;
 let isListening     = false;
 let finalTranscript = '';
 let silenceTimer    = null;
-let interimTimer    = null;
 
 
 
@@ -307,36 +306,26 @@ function setupVoice() {
     recognition.lang           = 'sv-SE';
 
     recognition.onresult = (e) => {
-        clearTimeout(silenceTimer);
-        clearTimeout(interimTimer);
+    clearTimeout(silenceTimer);
 
-        let interim = '';
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-            const text = e.results[i][0].transcript;
-            if (e.results[i].isFinal) {
-                finalTranscript += text + ', ';
-            } else {
-                interim = text;
-            }
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+        const text = e.results[i][0].transcript;
+        if (e.results[i].isFinal) {
+            finalTranscript += text.trim() + ', ';
+        } else {
+            interim = text;
         }
+    }
 
-        inputEl.value = finalTranscript + interim;
-        inputEl.style.height = 'auto';
-        inputEl.style.height = inputEl.scrollHeight + 'px';
+    inputEl.value = finalTranscript + interim;
+    inputEl.style.height = 'auto';
+    inputEl.style.height = inputEl.scrollHeight + 'px';
 
-        // ─── Short pause → comma between thoughts ─────────
-        if (interim) {
-            interimTimer = setTimeout(() => {
-                finalTranscript += interim + ', ';
-                inputEl.value = finalTranscript;
-            }, 1500);
-        }
-
-        // ─── Long silence → auto stop ─────────────────────
-        silenceTimer = setTimeout(() => {
-            if (isListening) recognition.stop();
-        }, 4000);
-    };
+    silenceTimer = setTimeout(() => {
+        if (isListening) recognition.stop();
+    }, 4000);
+};
 
     recognition.onend = () => {
         isListening = false;
@@ -378,11 +367,6 @@ micBtn.addEventListener('click', () => {
 // ┌─────────────────────────────────────────┐
 // │  BOOT                                   │
 // └─────────────────────────────────────────┘
-
-// ─── Request mic permission on load ──────────────────────
-navigator.mediaDevices?.getUserMedia({ audio: true })
-    .then(stream => stream.getTracks().forEach(t => t.stop()))
-    .catch(() => {});
 
 setupVoice();
 loadThoughts();
