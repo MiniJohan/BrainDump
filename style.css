@@ -98,7 +98,7 @@ body {
     padding: 14px 0;
     gap: 14px;
     -webkit-tap-highlight-color: transparent;
-    transition: padding 0.25s ease, color 0.25s ease;
+    transition: padding 0.25s ease;
 }
 
 .thought.hidden {
