@@ -26,6 +26,7 @@ let silenceTimer    = null;
 const thoughtsEl = document.getElementById('thoughts');
 const inputEl    = document.getElementById('input');
 const micBtn     = document.getElementById('mic-btn');
+const pullIndicator = document.getElementById('pull-indicator');
 
 
 
@@ -366,6 +367,47 @@ micBtn.addEventListener('click', () => {
         isListening = true;
     }
 });
+
+
+
+// ┌─────────────────────────────────────────┐
+// │  PULL TO REFRESH                        │
+// └─────────────────────────────────────────┘
+
+let pullStartY    = 0;
+let isPulling     = false;
+let pullTriggered = false;
+
+thoughtsEl.addEventListener('touchstart', (e) => {
+    // Only start pull when scrolled to top
+    if (thoughtsEl.scrollTop === 0) {
+        pullStartY = e.touches[0].clientY;
+        isPulling  = true;
+    }
+}, { passive: true });
+
+thoughtsEl.addEventListener('touchmove', (e) => {
+    if (!isPulling) return;
+    const deltaY = e.touches[0].clientY - pullStartY;
+    if (deltaY > 60) {
+        pullTriggered = true;
+        pullIndicator.classList.add('visible');
+    } else {
+        pullTriggered = false;
+        pullIndicator.classList.remove('visible');
+    }
+}, { passive: true });
+
+thoughtsEl.addEventListener('touchend', async () => {
+    if (!isPulling) return;
+    isPulling = false;
+
+    if (pullTriggered) {
+        pullTriggered = false;
+        await loadThoughts();
+        pullIndicator.classList.remove('visible');
+    }
+}, { passive: true });
 
 
 
