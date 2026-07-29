@@ -9,7 +9,7 @@ const db = createClient('https://dmmmpijwxynzmojlnuqr.supabase.co', 'sb_publisha
 // ┌─────────────────────────────────────────┐
 // │  STATE                                  │
 // └─────────────────────────────────────────┘
-let doneCollapsed = true;
+
 let isSearchMode        = false;
 
 let recognition         = null;
@@ -26,6 +26,7 @@ let finalTranscript     = '';
 const thoughtsEl = document.getElementById('thoughts');
 const inputEl    = document.getElementById('input');
 
+const micBtn = document.getElementById('mic-btn');
 
 
 // ┌─────────────────────────────────────────┐
@@ -45,7 +46,6 @@ async function loadThoughts() {
 function render(thoughts) {
     thoughtsEl.innerHTML = '';
     thoughts.forEach(t => thoughtsEl.appendChild(createThoughtEl(t, false)));
-    updateDoneCounter();
 }
 
 // ─── Build one element ────────────────────────────────────
@@ -142,8 +142,6 @@ async function toggleThought(id) {
     el.classList.toggle('done', isDone);
     el.querySelector('.checkbox').classList.toggle('checked', isDone);
 
-    updateDoneCounter();
-
     await db.from('thoughts').update({ done: isDone }).eq('id', id);
 }
 
@@ -194,30 +192,28 @@ function addSwipeDelete(el, id) {
 }
 
 function dismissThought(el, id) {
-    const height = el.offsetHeight;
-
-    // ─── Fade out ─────────────────────────────────────────
-    el.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+    el.style.transition = 'opacity 0.15s ease, transform 0.15s ease';
     el.style.opacity    = '0';
     el.style.transform  = 'scale(0.97)';
 
     setTimeout(() => {
-        // ─── Lock explicit height then collapse ───────────
-        el.style.transition = 'none';
         el.style.overflow   = 'hidden';
-        el.style.height     = height + 'px';
+        el.style.height     = el.offsetHeight + 'px';
+        el.style.paddingTop = '0';
+        el.style.paddingBottom = '0';
 
-        el.offsetHeight; // force reflow — browser registers height before transition
-
-        el.style.transition = 'height 0.22s ease';
-        el.style.height     = '0';
-    }, 200);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                el.style.transition = 'height 0.2s ease';
+                el.style.height     = '0';
+            });
+        });
+    }, 150);
 
     setTimeout(async () => {
         el.remove();
-        updateDoneCounter();
         await db.from('thoughts').delete().eq('id', id);
-    }, 430);
+    }, 360);
 }
 
 
@@ -355,6 +351,11 @@ function updateDoneCounter() {
 // │  VOICE                                  │
 // └─────────────────────────────────────────┘
 
+let recognition    = null;
+let isListening    = false;
+let silenceTimer   = null;
+let interimTimer   = null;
+
 function setupVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { micBtn.style.display = 'none'; return; }
@@ -362,9 +363,12 @@ function setupVoice() {
     recognition = new SR();
     recognition.continuous     = true;
     recognition.interimResults = true;
-    recognition.lang           = 'sv-SE';
+    recognition.lang           = 'en-US';
 
     recognition.onresult = (e) => {
+        clearTimeout(silenceTimer);
+        clearTimeout(interimTimer);
+
         let interim = '';
         for (let i = e.resultIndex; i < e.results.length; i++) {
             const text = e.results[i][0].transcript;
@@ -374,55 +378,70 @@ function setupVoice() {
                 interim = text;
             }
         }
+
         inputEl.value = finalTranscript + interim;
         inputEl.style.height = 'auto';
         inputEl.style.height = inputEl.scrollHeight + 'px';
+
+        // ─── Short pause → comma between thoughts ─────────
+        if (interim) {
+            interimTimer = setTimeout(() => {
+                finalTranscript += interim + ', ';
+                inputEl.value = finalTranscript;
+            }, 1500);
+        }
+
+        // ─── Long silence → auto stop ─────────────────────
+        silenceTimer = setTimeout(() => {
+            if (isListening) recognition.stop();
+        }, 4000);
     };
 
     recognition.onend = () => {
         isListening = false;
+        micBtn.classList.remove('listening');
         inputEl.style.fontStyle = '';
+        clearTimeout(silenceTimer);
+        clearTimeout(interimTimer);
         finalTranscript = '';
         dump();
     };
-    
+
     recognition.onerror = () => {
         isListening = false;
+        micBtn.classList.remove('listening');
         inputEl.style.fontStyle = '';
+        clearTimeout(silenceTimer);
+        clearTimeout(interimTimer);
         finalTranscript = '';
         inputEl.value = '';
     };
 }
 
-inputEl.addEventListener('touchstart', (e) => {
-    if (isSearchMode) return;
-    holdTimer = setTimeout(() => {
-        if (!recognition) return;
+micBtn.addEventListener('click', () => {
+    if (!recognition) return;
+    if (isListening) {
+        recognition.stop();
+    } else {
         finalTranscript = '';
-        inputEl.value = '';
+        inputEl.value   = '';
         inputEl.style.fontStyle = 'italic';
+        micBtn.classList.add('listening');
         recognition.start();
         isListening = true;
-    }, 400);
-}, { passive: true });
-
-inputEl.addEventListener('touchend', () => {
-    clearTimeout(holdTimer);
-    if (isListening) {
-        inputEl.style.fontStyle = '';
-        recognition.stop();
     }
-}, { passive: true });
-
-inputEl.addEventListener('touchmove', () => {
-    clearTimeout(holdTimer);
-}, { passive: true });
+});
 
 
 
 // ┌─────────────────────────────────────────┐
 // │  BOOT                                   │
 // └─────────────────────────────────────────┘
+
+// ─── Request mic permission on load ──────────────────────
+navigator.mediaDevices?.getUserMedia({ audio: true })
+    .then(stream => stream.getTracks().forEach(t => t.stop()))
+    .catch(() => {});
 
 setupVoice();
 loadThoughts();

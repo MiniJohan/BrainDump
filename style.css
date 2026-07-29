@@ -57,6 +57,28 @@ body {
     color: var(--muted);
 }
 
+#mic-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    padding: 10px 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    transition: color 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#mic-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+#mic-btn.listening {
+    color: var(--bright);
+}
+
 
 
 #thoughts {
@@ -77,6 +99,7 @@ body {
     gap: 14px;
     border-bottom: 0.5px solid var(--border);
     -webkit-tap-highlight-color: transparent;
+    transition: padding 0.2s ease;
 }
 
 .thought.hidden {
@@ -97,7 +120,7 @@ body {
 }
 
 .thought.done {
-    color: var(--muted);
+    opacity: 0.25;
 }
 
 .thought span {
@@ -146,44 +169,4 @@ body {
     font-size: 17px;
     line-height: 1.4;
     text-align: left;
-}
-
-
-
-.done-counter {
-    padding: 14px 0;
-    color: var(--muted);
-    font-size: 13px;
-    cursor: pointer;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-    transition: color 0.25s ease;
-}
-
-.done-counter {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    padding: 14px 0;
-    font-size: 13px;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-}
-
-.counter-label {
-    color: var(--muted);
-    cursor: pointer;
-    transition: color 0.15s ease;
-}
-
-.counter-sep {
-    color: var(--border);
-    padding: 0 10px;
-}
-
-.counter-clear {
-    color: var(--muted);
-    cursor: pointer;
-    transition: color 0.15s ease;
-    font-size: 13px;
 }
