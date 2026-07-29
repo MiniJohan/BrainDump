@@ -58,35 +58,6 @@ body {
 }
 
 
-
-#mic-btn {
-    background: none;
-    border: none;
-    color: var(--muted);
-    padding: 10px 4px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-    transition: color 0.15s ease;
-}
-
-#mic-btn svg {
-    width: 20px;
-    height: 20px;
-}
-
-#mic-btn.listening {
-    color: var(--text);
-    animation: pulse 1s ease infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: 0.3; }
-}
-
-
 #clear-btn {
     padding: 12px 4px;
     border: none;

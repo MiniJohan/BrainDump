@@ -1,27 +1,44 @@
-// ─── Supabase setup ───────────────────────────────────────
+// ┌─────────────────────────────────────────┐
+// │  CONFIG                                 │
+// └─────────────────────────────────────────┘
 const { createClient } = supabase;
-const db = createClient(
-    'https://dmmmpijwxynzmojlnuqr.supabase.co',
-    'sb_publishable_Ahf30a1YFkbifXcA-AoasA_roTpTpbw'
-);
+const db = createClient('https://dmmmpijwxynzmojlnuqr.supabase.co', 'sb_publishable_Ahf30a1YFkbifXcA-AoasA_roTpTpbw');
 
-// ─── Elements ─────────────────────────────────────────────
+
+
+// ┌─────────────────────────────────────────┐
+// │  STATE                                  │
+// └─────────────────────────────────────────┘
+
+let pendingDelete       = [];
+let undoTimeout         = null;
+
+let isSearchMode        = false;
+
+let recognition         = null;
+let isListening         = false;
+let holdTimer           = null;
+
+
+
+// ┌─────────────────────────────────────────┐
+// │  ELEMENTS                               │
+// └─────────────────────────────────────────┘
+
 const thoughtsEl = document.getElementById('thoughts');
 const inputEl    = document.getElementById('input');
 const clearBtn   = document.getElementById('clear-btn');
-const micBtn     = document.getElementById('mic-btn');
 
 const toast      = document.getElementById('toast');
 const toastMsg   = document.getElementById('toast-msg');
 const undoBtn    = document.getElementById('undo-btn')
 
 
-let pendingDelete   = [];
-let undoTimeout     = null;
 
-let isSearchMode = false;
+// ┌─────────────────────────────────────────┐
+// │  RENDER                                 │
+// └─────────────────────────────────────────┘
 
-// ─── Initial load ─────────────────────────────────────────
 async function loadThoughts() {
     const { data } = await db
         .from('thoughts')
@@ -72,7 +89,12 @@ function createThoughtEl(t, isNew = false) {
     return div;
 }
 
-// ─── Dump ─────────────────────────────────────────────────
+
+
+// ┌─────────────────────────────────────────┐
+// │  DUMP                                   │
+// └─────────────────────────────────────────┘
+
 async function dump() {
     const text = inputEl.value.trim();
     if (!text) return;
@@ -119,27 +141,12 @@ inputEl.addEventListener('keydown', (e) => {
     }
 });
 
-// ─── Auto-grow textarea ───────────────────────────────────
-inputEl.addEventListener('input', () => {
-    const value = inputEl.value;
 
-    if (value.startsWith('/')) {
-        isSearchMode = true;
-        inputEl.style.fontStyle = 'italic';
-        filterThoughts(value.slice(1).trim().toLowerCase());
-    } else {
-        if (isSearchMode) {
-            isSearchMode = false;
-            inputEl.style.fontStyle = '';
-            filterThoughts('');
-        }
-    }
 
-    inputEl.style.height = 'auto';
-    inputEl.style.height = inputEl.scrollHeight + 'px';
-});
+// ┌─────────────────────────────────────────┐
+// │  TOGGLE                                 │
+// └─────────────────────────────────────────┘
 
-// ─── Toggle ───────────────────────────────────────────────
 async function toggleThought(id) {
     const el = thoughtsEl.querySelector(`[data-id="${id}"]`);
     if (!el) return;
@@ -154,100 +161,11 @@ async function toggleThought(id) {
         .eq('id', id);
 }
 
-// ─── Clear done ───────────────────────────────────────────
-clearBtn.addEventListener('click', () => {
-    const doneEls = [...thoughtsEl.querySelectorAll('.thought.done')];
-    if (doneEls.length === 0) return;
 
-    // Store for potential undo — snapshot before removal
-    pendingDelete = doneEls.map(el => ({
-        id: el.dataset.id,
-        el: el
-    }));
 
-    // Remove from DOM immediately
-    doneEls.forEach(el => el.remove());
-
-    if (!thoughtsEl.querySelector('.thought')) {
-        thoughtsEl.innerHTML = '<p class="empty">nothing yet.</p>';
-    }
-
-    // Show toast
-    toastMsg.textContent = `Cleared ${doneEls.length} item${doneEls.length !== 1 ? 's' : ''}`;
-    toast.classList.add('visible');
-
-    // Start 5 second timer — delete for real if no undo
-    if (undoTimeout) clearTimeout(undoTimeout);
-    undoTimeout = setTimeout(async () => {
-        if (pendingDelete.length > 0) {
-            const ids = pendingDelete.map(i => i.id);
-            await db.from('thoughts').delete().in('id', ids);
-            pendingDelete = [];
-        }
-        toast.classList.remove('visible');
-    }, 3000);
-});
-
-undoBtn.addEventListener('click', () => {
-    clearTimeout(undoTimeout);
-    toast.classList.remove('visible');
-
-    if (pendingDelete.length === 0) return;
-
-    const empty = thoughtsEl.querySelector('.empty');
-    if (empty) empty.remove();
-
-    pendingDelete.forEach(({ el }) => {
-        el.classList.remove('done');
-        el.querySelector('.checkbox').classList.remove('checked');
-        thoughtsEl.appendChild(el);
-    });
-
-    // Persist unchecked state back to Supabase
-    pendingDelete.forEach(async ({ id }) => {
-        await db.from('thoughts').update({ done: false }).eq('id', id);
-    });
-
-    pendingDelete = [];
-});
-
-// ─── Edit ─────────────────────────────────────────────────
-function editThought(id, span) {
-    const original = span.textContent;
-    span.contentEditable = 'true';
-    span.classList.add('editing');
-    span.focus();
-
-    const range = document.createRange();
-    range.selectNodeContents(span);
-    range.collapse(false);
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-
-    async function save() {
-        const newText = span.textContent.trim();
-        span.contentEditable = 'false';
-        span.classList.remove('editing');
-        if (!newText) { span.textContent = original; return; }
-        if (newText === original) return;
-        span.textContent = newText;
-        await db.from('thoughts').update({ text: newText }).eq('id', id);
-    }
-
-    function cancel() {
-        span.contentEditable = 'false';
-        span.classList.remove('editing');
-        span.textContent = original;
-    }
-
-    span.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); span.blur(); }
-        if (e.key === 'Escape') { cancel(); }
-    });
-
-    span.addEventListener('blur', save, { once: true });
-}
+// ┌─────────────────────────────────────────┐
+// │  DELETE                                 │
+// └─────────────────────────────────────────┘
 
 function addSwipeDelete(el, id) {
     let startX    = 0;
@@ -289,7 +207,6 @@ function addSwipeDelete(el, id) {
     }, { passive: true });
 }
 
-
 function dismissThought(el, id) {
     // Fade and scale down
     el.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
@@ -316,6 +233,72 @@ function dismissThought(el, id) {
 
 
 
+// ┌─────────────────────────────────────────┐
+// │  CLEAR + UNDO                           │
+// └─────────────────────────────────────────┘
+
+clearBtn.addEventListener('click', () => {
+    const doneEls = [...thoughtsEl.querySelectorAll('.thought.done')];
+    if (doneEls.length === 0) return;
+
+    // Store for potential undo — snapshot before removal
+    pendingDelete = doneEls.map(el => ({
+        id: el.dataset.id,
+        el: el
+    }));
+
+    // Remove from DOM immediately
+    doneEls.forEach(el => el.remove());
+
+    if (!thoughtsEl.querySelector('.thought')) {
+        thoughtsEl.innerHTML = '<p class="empty">nothing yet.</p>';
+    }
+
+    // Show toast
+    toastMsg.textContent = `Cleared ${doneEls.length} item${doneEls.length !== 1 ? 's' : ''}`;
+    toast.classList.add('visible');
+
+    // Start 5 second timer — delete for real if no undo
+    if (undoTimeout) clearTimeout(undoTimeout);
+    undoTimeout = setTimeout(async () => {
+        if (pendingDelete.length > 0) {
+            const ids = pendingDelete.map(i => i.id);
+            await db.from('thoughts').delete().in('id', ids);
+            pendingDelete = [];
+        }
+        toast.classList.remove('visible');
+    }, 3000);
+});
+
+undoBtn.addEventListener('click', () => {
+    clearTimeout(undoTimeout);
+    toast.classList.remove('visible');
+    
+    if (pendingDelete.length === 0) return;
+    
+    const empty = thoughtsEl.querySelector('.empty');
+    if (empty) empty.remove();
+    
+    pendingDelete.forEach(({ el }) => {
+        el.classList.remove('done');
+        el.querySelector('.checkbox').classList.remove('checked');
+        thoughtsEl.appendChild(el);
+    });
+    
+    // Persist unchecked state back to Supabase
+    pendingDelete.forEach(async ({ id }) => {
+        await db.from('thoughts').update({ done: false }).eq('id', id);
+    });
+    
+    pendingDelete = [];
+});
+
+
+
+// ┌─────────────────────────────────────────┐
+// │  SEARCH                                 │
+// └─────────────────────────────────────────┘
+
 function filterThoughts(query) {
     thoughtsEl.querySelectorAll('.thought').forEach(el => {
         const text = el.querySelector('span').textContent.toLowerCase();
@@ -323,9 +306,73 @@ function filterThoughts(query) {
     });
 }
 
-// ─── Voice ────────────────────────────────────────────────
-let recognition = null;
-let isListening = false;
+inputEl.addEventListener('input', () => {
+    const value = inputEl.value;
+
+    if (value.startsWith('/')) {
+        isSearchMode = true;
+        inputEl.style.fontStyle = 'italic';
+        filterThoughts(value.slice(1).trim().toLowerCase());
+    } else {
+        if (isSearchMode) {
+            isSearchMode = false;
+            inputEl.style.fontStyle = '';
+            filterThoughts('');
+        }
+    }
+
+    inputEl.style.height = 'auto';
+    inputEl.style.height = inputEl.scrollHeight + 'px';
+});
+
+
+
+// ┌─────────────────────────────────────────┐
+// │  EDIT                                   │
+// └─────────────────────────────────────────┘
+
+function editThought(id, span) {
+    const original = span.textContent;
+    span.contentEditable = 'true';
+    span.classList.add('editing');
+    span.focus();
+
+    const range = document.createRange();
+    range.selectNodeContents(span);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    async function save() {
+        const newText = span.textContent.trim();
+        span.contentEditable = 'false';
+        span.classList.remove('editing');
+        if (!newText) { span.textContent = original; return; }
+        if (newText === original) return;
+        span.textContent = newText;
+        await db.from('thoughts').update({ text: newText }).eq('id', id);
+    }
+
+    function cancel() {
+        span.contentEditable = 'false';
+        span.classList.remove('editing');
+        span.textContent = original;
+    }
+
+    span.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); span.blur(); }
+        if (e.key === 'Escape') { cancel(); }
+    });
+
+    span.addEventListener('blur', save, { once: true });
+}
+
+
+
+// ┌─────────────────────────────────────────┐
+// │  VOICE                                  │
+// └─────────────────────────────────────────┘
 
 function setupVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -367,11 +414,31 @@ function setupVoice() {
     };
 }
 
-micBtn.addEventListener('click', () => {
-    if (!recognition) return;
-    if (isListening) { recognition.stop(); }
-    else { inputEl.value = ''; recognition.start(); isListening = true; micBtn.classList.add('listening'); }
-});
+inputEl.addEventListener('touchstart', (e) => {
+    if (isSearchMode) return;
+    holdTimer = setTimeout(() => {
+        if (!recognition) return;
+        inputEl.value = '';
+        inputEl.style.fontStyle = 'italic';
+        recognition.start();
+        isListening = true;
+    }, 400);
+}, { passive: true });
+
+inputEl.addEventListener('touchend', () => {
+    clearTimeout(holdTimer);
+    if (isListening) recognition.stop();
+}, { passive: true });
+
+inputEl.addEventListener('touchmove', () => {
+    clearTimeout(holdTimer);
+}, { passive: true });
+
+
+
+// ┌─────────────────────────────────────────┐
+// │  BOOT                                   │
+// └─────────────────────────────────────────┘
 
 setupVoice();
 loadThoughts();
