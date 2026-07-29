@@ -122,6 +122,10 @@ body {
     -webkit-tap-highlight-color: transparent;
 }
 
+.thought.hidden {
+    display: none;
+}
+
 .thought-new {
     animation: fadeIn 0.5s ease forwards;
 }
