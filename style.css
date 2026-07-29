@@ -22,6 +22,8 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
+
+
 #input-area {
     display: flex;
     align-items: center;
@@ -54,6 +56,8 @@ body {
     opacity: 1;
     color: var(--muted);
 }
+
+
 
 #mic-btn {
     background: none;
@@ -154,6 +158,8 @@ body {
     text-decoration-color: var(--text);
 }
 
+
+
 .checkbox {
     width: 22px;
     height: 22px;
@@ -171,10 +177,52 @@ body {
     border-color: var(--secondary);
 }
 
+
+
 .empty {
     padding: 14px 0px 0px 36px;
     color: var(--muted);
     font-size: 17px;
     line-height: 1.4;
     text-align: left;
+}
+
+
+
+#toast {
+    position: fixed;
+    bottom: calc(90px + env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 14px;
+    color: var(--secondary);
+    white-space: nowrap;
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+#toast.visible {
+    opacity: 1;
+    pointer-events: all;
+}
+
+#undo-btn {
+    background: none;
+    border: none;
+    color: var(--bright);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
 }
