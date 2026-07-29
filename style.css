@@ -58,20 +58,6 @@ body {
 }
 
 
-#clear-btn {
-    padding: 12px 4px;
-    border: none;
-    color: var(--secondary);
-    background: none;
-    font-size: 13px;
-    font-family: inherit;
-    cursor: pointer;
-    white-space: nowrap;
-    flex-shrink: 0;
-    transition: color 0.25s;
-}
-
-
 
 #thoughts {
     display: flex;
@@ -164,40 +150,12 @@ body {
 
 
 
-#toast {
-    position: fixed;
-    bottom: calc(90px + env(safe-area-inset-bottom));
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--surface);
-    border: 0.5px solid var(--border);
-    border-radius: 12px;
-    padding: 12px 16px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    font-size: 14px;
-    color: var(--secondary);
-    white-space: nowrap;
-    z-index: 200;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease;
-}
-
-#toast.visible {
-    opacity: 1;
-    pointer-events: all;
-}
-
-#undo-btn {
-    background: none;
-    border: none;
-    color: var(--bright);
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 500;
+.done-counter {
+    padding: 14px 0;
+    color: var(--muted);
+    font-size: 13px;
     cursor: pointer;
-    padding: 0;
+    user-select: none;
     -webkit-tap-highlight-color: transparent;
+    transition: color 0.25s ease;
 }

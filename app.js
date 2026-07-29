@@ -9,10 +9,7 @@ const db = createClient('https://dmmmpijwxynzmojlnuqr.supabase.co', 'sb_publisha
 // ┌─────────────────────────────────────────┐
 // │  STATE                                  │
 // └─────────────────────────────────────────┘
-
-let pendingDelete       = [];
-let undoTimeout         = null;
-
+let doneCollapsed = true;
 let isSearchMode        = false;
 
 let recognition         = null;
@@ -28,11 +25,6 @@ let finalTranscript     = '';
 
 const thoughtsEl = document.getElementById('thoughts');
 const inputEl    = document.getElementById('input');
-const clearBtn   = document.getElementById('clear-btn');
-
-const toast      = document.getElementById('toast');
-const toastMsg   = document.getElementById('toast-msg');
-const undoBtn    = document.getElementById('undo-btn')
 
 
 
@@ -52,11 +44,8 @@ async function loadThoughts() {
 // ─── Full render — initial load only ─────────────────────
 function render(thoughts) {
     thoughtsEl.innerHTML = '';
-    if (thoughts.length === 0) {
-        thoughtsEl.innerHTML = '<p class="empty">nothing yet.</p>';
-        return;
-    }
     thoughts.forEach(t => thoughtsEl.appendChild(createThoughtEl(t, false)));
+    updateDoneCounter();
 }
 
 // ─── Build one element ────────────────────────────────────
@@ -102,9 +91,6 @@ async function dump() {
 
     inputEl.value = '';
     inputEl.style.height = 'auto';
-
-    const empty = thoughtsEl.querySelector('.empty');
-    if (empty) empty.remove();
 
     const items = text.split(/[,;\n]+/)
         .map(i => i.trim())
@@ -153,13 +139,12 @@ async function toggleThought(id) {
     if (!el) return;
 
     const isDone = !el.classList.contains('done');
-    el.classList.toggle('done');
-    el.querySelector('.checkbox').classList.toggle('checked');
+    el.classList.toggle('done', isDone);
+    el.querySelector('.checkbox').classList.toggle('checked', isDone);
 
-    await db
-        .from('thoughts')
-        .update({ done: isDone })
-        .eq('id', id);
+    updateDoneCounter();
+
+    await db.from('thoughts').update({ done: isDone }).eq('id', id);
 }
 
 
@@ -209,12 +194,10 @@ function addSwipeDelete(el, id) {
 }
 
 function dismissThought(el, id) {
-    // Fade and scale down
     el.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
     el.style.opacity    = '0';
     el.style.transform  = 'scale(0.97)';
 
-    // Collapse height after fade
     setTimeout(() => {
         el.style.transition = 'max-height 0.2s ease';
         el.style.maxHeight  = el.offsetHeight + 'px';
@@ -222,77 +205,12 @@ function dismissThought(el, id) {
         requestAnimationFrame(() => { el.style.maxHeight = '0'; });
     }, 200);
 
-    // Remove from DOM and delete from Supabase
     setTimeout(async () => {
         el.remove();
-        if (!thoughtsEl.querySelector('.thought')) {
-            thoughtsEl.innerHTML = '<p class="empty">nothing yet.</p>';
-        }
+        updateDoneCounter();
         await db.from('thoughts').delete().eq('id', id);
     }, 400);
 }
-
-
-
-// ┌─────────────────────────────────────────┐
-// │  CLEAR + UNDO                           │
-// └─────────────────────────────────────────┘
-
-clearBtn.addEventListener('click', () => {
-    const doneEls = [...thoughtsEl.querySelectorAll('.thought.done')];
-    if (doneEls.length === 0) return;
-
-    // Store for potential undo — snapshot before removal
-    pendingDelete = doneEls.map(el => ({
-        id: el.dataset.id,
-        el: el
-    }));
-
-    // Remove from DOM immediately
-    doneEls.forEach(el => el.remove());
-
-    if (!thoughtsEl.querySelector('.thought')) {
-        thoughtsEl.innerHTML = '<p class="empty">nothing yet.</p>';
-    }
-
-    // Show toast
-    toastMsg.textContent = `Cleared ${doneEls.length} item${doneEls.length !== 1 ? 's' : ''}`;
-    toast.classList.add('visible');
-
-    // Start 5 second timer — delete for real if no undo
-    if (undoTimeout) clearTimeout(undoTimeout);
-    undoTimeout = setTimeout(async () => {
-        if (pendingDelete.length > 0) {
-            const ids = pendingDelete.map(i => i.id);
-            await db.from('thoughts').delete().in('id', ids);
-            pendingDelete = [];
-        }
-        toast.classList.remove('visible');
-    }, 3000);
-});
-
-undoBtn.addEventListener('click', () => {
-    clearTimeout(undoTimeout);
-    toast.classList.remove('visible');
-    
-    if (pendingDelete.length === 0) return;
-    
-    const empty = thoughtsEl.querySelector('.empty');
-    if (empty) empty.remove();
-    
-    pendingDelete.forEach(({ el }) => {
-        el.classList.remove('done');
-        el.querySelector('.checkbox').classList.remove('checked');
-        thoughtsEl.appendChild(el);
-    });
-    
-    // Persist unchecked state back to Supabase
-    pendingDelete.forEach(async ({ id }) => {
-        await db.from('thoughts').update({ done: false }).eq('id', id);
-    });
-    
-    pendingDelete = [];
-});
 
 
 
@@ -367,6 +285,39 @@ function editThought(id, span) {
     });
 
     span.addEventListener('blur', save, { once: true });
+}
+
+
+
+// ┌─────────────────────────────────────────┐
+// │  COLLAPSE DONE                          │
+// └─────────────────────────────────────────┘
+
+function updateDoneCounter() {
+    const existing = thoughtsEl.querySelector('.done-counter');
+    if (existing) existing.remove();
+
+    const doneEls = [...thoughtsEl.querySelectorAll('.thought.done')];
+    if (doneEls.length === 0) return;
+
+    // Hide or show done items
+    doneEls.forEach(el => {
+        el.style.display = doneCollapsed ? 'none' : '';
+    });
+
+    // Counter label
+    const counter = document.createElement('div');
+    counter.className   = 'done-counter';
+    counter.textContent = doneCollapsed
+        ? `${doneEls.length} done`
+        : 'hide done';
+
+    counter.addEventListener('click', () => {
+        doneCollapsed = !doneCollapsed;
+        updateDoneCounter();
+    });
+
+    thoughtsEl.appendChild(counter);
 }
 
 
