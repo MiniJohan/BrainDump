@@ -18,6 +18,7 @@ let isSearchMode        = false;
 let recognition         = null;
 let isListening         = false;
 let holdTimer           = null;
+let finalTranscript     = '';
 
 
 
@@ -383,8 +384,6 @@ function setupVoice() {
     recognition.interimResults = true;
     recognition.lang           = 'sv-SE';
 
-    let finalTranscript = '';
-
     recognition.onresult = (e) => {
         let interim = '';
         for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -402,15 +401,16 @@ function setupVoice() {
 
     recognition.onend = () => {
         isListening = false;
-        micBtn.classList.remove('listening');
+        inputEl.style.fontStyle = '';
         finalTranscript = '';
         dump();
     };
-
+    
     recognition.onerror = () => {
         isListening = false;
-        micBtn.classList.remove('listening');
+        inputEl.style.fontStyle = '';
         finalTranscript = '';
+        inputEl.value = '';
     };
 }
 
@@ -418,6 +418,7 @@ inputEl.addEventListener('touchstart', (e) => {
     if (isSearchMode) return;
     holdTimer = setTimeout(() => {
         if (!recognition) return;
+        finalTranscript = '';
         inputEl.value = '';
         inputEl.style.fontStyle = 'italic';
         recognition.start();
@@ -427,7 +428,10 @@ inputEl.addEventListener('touchstart', (e) => {
 
 inputEl.addEventListener('touchend', () => {
     clearTimeout(holdTimer);
-    if (isListening) recognition.stop();
+    if (isListening) {
+        inputEl.style.fontStyle = '';
+        recognition.stop();
+    }
 }, { passive: true });
 
 inputEl.addEventListener('touchmove', () => {
