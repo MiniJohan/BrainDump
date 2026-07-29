@@ -19,6 +19,8 @@ const undoBtn    = document.getElementById('undo-btn')
 let pendingDelete   = [];
 let undoTimeout     = null;
 
+let isSearchMode = false;
+
 // ─── Initial load ─────────────────────────────────────────
 async function loadThoughts() {
     const { data } = await db
@@ -99,12 +101,40 @@ async function dump() {
 inputEl.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
         e.preventDefault();
-        dump();
+        if (isSearchMode) {
+            // Exit search on enter
+            inputEl.value = '';
+            inputEl.style.fontStyle = '';
+            isSearchMode = false;
+            filterThoughts('');
+        } else {
+            dump();
+        }
+    }
+    if (e.key === 'Escape' && isSearchMode) {
+        inputEl.value = '';
+        inputEl.style.fontStyle = '';
+        isSearchMode = false;
+        filterThoughts('');
     }
 });
 
 // ─── Auto-grow textarea ───────────────────────────────────
 inputEl.addEventListener('input', () => {
+    const value = inputEl.value;
+
+    if (value.startsWith('/')) {
+        isSearchMode = true;
+        inputEl.style.fontStyle = 'italic';
+        filterThoughts(value.slice(1).trim().toLowerCase());
+    } else {
+        if (isSearchMode) {
+            isSearchMode = false;
+            inputEl.style.fontStyle = '';
+            filterThoughts('');
+        }
+    }
+
     inputEl.style.height = 'auto';
     inputEl.style.height = inputEl.scrollHeight + 'px';
 });
@@ -155,10 +185,8 @@ clearBtn.addEventListener('click', () => {
             pendingDelete = [];
         }
         toast.classList.remove('visible');
-    }, 5000);
+    }, 3000);
 });
-
-
 
 undoBtn.addEventListener('click', () => {
     clearTimeout(undoTimeout);
@@ -284,6 +312,15 @@ function dismissThought(el, id) {
         }
         await db.from('thoughts').delete().eq('id', id);
     }, 400);
+}
+
+
+
+function filterThoughts(query) {
+    thoughtsEl.querySelectorAll('.thought').forEach(el => {
+        const text = el.querySelector('span').textContent.toLowerCase();
+        el.classList.toggle('hidden', query !== '' && !text.includes(query));
+    });
 }
 
 // ─── Voice ────────────────────────────────────────────────
