@@ -97,7 +97,6 @@ body {
     align-items: center;
     padding: 14px 0;
     gap: 14px;
-    border-bottom: 0.5px solid var(--border);
     -webkit-tap-highlight-color: transparent;
     transition: padding 0.2s ease;
 }
@@ -120,7 +119,7 @@ body {
 }
 
 .thought.done {
-    opacity: 0.25;
+    color: var(--muted);
 }
 
 .thought span {
