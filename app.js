@@ -332,7 +332,6 @@ function setupVoice() {
         micBtn.classList.remove('listening');
         inputEl.style.fontStyle = '';
         clearTimeout(silenceTimer);
-        clearTimeout(interimTimer);
         finalTranscript = '';
         dump();
     };
@@ -342,7 +341,6 @@ function setupVoice() {
         micBtn.classList.remove('listening');
         inputEl.style.fontStyle = '';
         clearTimeout(silenceTimer);
-        clearTimeout(interimTimer);
         finalTranscript = '';
         inputEl.value = '';
     };
