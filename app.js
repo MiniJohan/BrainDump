@@ -68,17 +68,45 @@ emailInput.addEventListener('keydown', (e) => {
 
 // ─── Restore existing session ───────────────────────
 async function initAuth() {
-    console.log('Current URL:', window.location.href);
+    // Supabase magic links put the session in the URL hash.
+    const hash = window.location.hash;
 
+    if (hash && hash.includes('access_token')) {
+        console.log('Magic link detected');
+
+        // Give Supabase a moment to process the URL.
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        const { data, error } = await db.auth.getSession();
+
+        if (error) {
+            console.error('Magic link session error:', error);
+            showLogin();
+            return;
+        }
+
+        if (data.session) {
+            // Remove tokens from the visible URL.
+            history.replaceState(
+                null,
+                '',
+                window.location.pathname + window.location.search
+            );
+
+            showApp();
+            await loadThoughts();
+            return;
+        }
+    }
+
+    // Normal app launch.
     const { data, error } = await db.auth.getSession();
 
     if (error) {
-        console.error('getSession error:', error);
+        console.error('Session error:', error);
         showLogin();
         return;
     }
-
-    console.log('Session found:', !!data.session);
 
     if (data.session) {
         showApp();
