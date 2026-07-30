@@ -13,19 +13,32 @@
 
 <body>
 
-    <div id="input-area">
-        <textarea id="input" placeholder="empty anything..." rows="1"></textarea>
-        <button id="mic-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="9" y="2" width="6" height="11" rx="3"/>
-            <path d="M5 10a7 7 0 0 0 14 0"/>
-            <line x1="12" y1="19" x2="12" y2="22"/>
-            <line x1="9" y1="22" x2="15" y2="22"/>
-        </svg>
-    </button>
+    <!-- ─── Login screen ─────────────────────────── -->
+    <div id="login-screen">
+        <div id="login-box">
+            <p id="app-title">Empty</p>
+            <input id="email-input" type="email" placeholder="your@email.com" autocomplete="email">
+            <button id="login-btn">continue</button>
+            <p id="login-hint"></p>
+        </div>
     </div>
 
-    <div id="thoughts"></div>
+    <div id="app-screen" class="hidden">
+
+        <div id="input-area">
+            <textarea id="input" placeholder="empty anything..." rows="1"></textarea>
+            <button id="mic-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="2" width="6" height="11" rx="3"/>
+                    <path d="M5 10a7 7 0 0 0 14 0"/>
+                    <line x1="12" y1="19" x2="12" y2="22"/>
+                    <line x1="9" y1="22" x2="15" y2="22"/>
+                </svg>
+            </button>
+        </div>
+
+        <div id="thoughts"></div>
+    </div>
 
     
     <script src="app.js"></script>
@@ -33,7 +46,7 @@
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/service_worker.js');
         }
-</script>
+    </script>
 </body>
 
 </html>

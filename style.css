@@ -13,14 +13,99 @@
 body {
     display: flex;
     flex-direction: column;
-    height: 100dvh;
     color: var(--text);
     background: var(--bg);
     caret-color: var(--text);
     font-family: system-ui, -apple-system, sans-serif;
-    overflow: hidden;
     -webkit-font-smoothing: antialiased;
 }
+
+
+
+/* ─── Screens ─────────────────────────────────────── */
+
+.hidden {
+    display: none !important;
+}
+
+#app-screen {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+}
+
+/* ─── Login ───────────────────────────────────────── */
+
+#login-screen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100dvh;
+    padding: 48px 32px;
+}
+
+#login-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    max-width: 320px;
+}
+
+#app-title {
+    font-size: 28px;
+    font-weight: 300;
+    letter-spacing: 0.15em;
+    color: var(--bright);
+    margin-bottom: 24px;
+}
+
+#email-input {
+    width: 100%;
+    background: var(--surface);
+    border: none;
+    border-radius: 12px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 17px;
+    padding: 14px 16px;
+    outline: none;
+    text-align: center;
+}
+
+#email-input::placeholder {
+    color: var(--muted);
+}
+
+#login-btn {
+    width: 100%;
+    background: var(--bright);
+    border: none;
+    border-radius: 12px;
+    color: #000000;
+    font-family: inherit;
+    font-size: 17px;
+    font-weight: 500;
+    padding: 14px;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#login-btn:active {
+    opacity: 0.8;
+}
+
+#login-hint {
+    font-size: 13px;
+    color: var(--muted);
+    text-align: center;
+    min-height: 18px;
+}
+
+
+
 
 
 

@@ -1,10 +1,80 @@
 // ┌─────────────────────────────────────────┐
+// │                                         │
+// └─────────────────────────────────────────┘
+
+
+
+
+// ┌─────────────────────────────────────────┐
 // │  CONFIG                                 │
 // └─────────────────────────────────────────┘
 
 const { createClient } = supabase;
 const db = createClient('https://dmmmpijwxynzmojlnuqr.supabase.co', 'sb_publishable_Ahf30a1YFkbifXcA-AoasA_roTpTpbw');
 
+
+
+// ┌─────────────────────────────────────────┐
+// │  AUTH                                   │
+// └─────────────────────────────────────────┘
+
+const loginScreen = document.getElementById('login-screen');
+const appScreen   = document.getElementById('app-screen');
+
+const emailInput  = document.getElementById('email-input');
+const loginBtn    = document.getElementById('login-btn');
+const loginHint   = document.getElementById('login-hint');
+
+function showApp() {
+    loginScreen.classList.add('hidden');
+    appScreen.classList.remove('hidden');
+}
+
+function showLogin() {
+    appScreen.classList.add('hidden');
+    loginScreen.classList.remove('hidden');
+}
+
+// ─── Send magic link ──────────────────────────────────
+loginBtn.addEventListener('click', async () => {
+    const email = emailInput.value.trim();
+    if (!email) return;
+
+    loginBtn.textContent = 'sending...';
+    loginBtn.disabled    = true;
+
+    const { error } = await db.auth.signInWithOtp({
+        email,
+        options: {
+            emailRedirectTo: window.location.origin + window.location.pathname
+        }
+    });
+
+    if (error) {
+        loginHint.textContent = 'something went wrong, try again';
+        loginBtn.textContent  = 'continue';
+        loginBtn.disabled     = false;
+    } else {
+        loginHint.textContent = 'check your email for a link';
+        loginBtn.textContent  = 'continue';
+        loginBtn.disabled     = false;
+    }
+});
+
+// ─── Also allow Enter key on email input ─────────────
+emailInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') loginBtn.click();
+});
+
+// ─── Session check on load + auth state listener ─────
+db.auth.onAuthStateChange((event, session) => {
+    if (session) {
+        showApp();
+        loadThoughts();
+    } else {
+        showLogin();
+    }
+});
 
 
 // ┌─────────────────────────────────────────┐
@@ -367,11 +437,3 @@ micBtn.addEventListener('click', () => {
         isListening = true;
     }
 });
-
-
-
-// ┌─────────────────────────────────────────┐
-// │  BOOT                                   │
-// └─────────────────────────────────────────┘
-
-loadThoughts();
