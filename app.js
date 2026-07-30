@@ -35,13 +35,13 @@ function showLogin() {
     loginScreen.classList.remove('hidden');
 }
 
-// ─── Send magic link ──────────────────────────────────
+// ─── Send magic link ────────────────────────────────
 loginBtn.addEventListener('click', async () => {
     const email = emailInput.value.trim();
     if (!email) return;
 
     loginBtn.textContent = 'sending...';
-    loginBtn.disabled    = true;
+    loginBtn.disabled = true;
 
     const { error } = await db.auth.signInWithOtp({
         email,
@@ -51,30 +51,56 @@ loginBtn.addEventListener('click', async () => {
     });
 
     if (error) {
-        loginHint.textContent = 'something went wrong, try again';
-        loginBtn.textContent  = 'continue';
-        loginBtn.disabled     = false;
+        console.error('Magic link error:', error);
+        loginHint.textContent = error.message;
     } else {
         loginHint.textContent = 'check your email for a link';
-        loginBtn.textContent  = 'continue';
-        loginBtn.disabled     = false;
     }
+
+    loginBtn.textContent = 'continue';
+    loginBtn.disabled = false;
 });
 
-// ─── Also allow Enter key on email input ─────────────
+// ─── Enter key ──────────────────────────────────────
 emailInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') loginBtn.click();
 });
 
-// ─── Session check on load + auth state listener ─────
+// ─── Restore existing session ───────────────────────
+async function initAuth() {
+    console.log('Current URL:', window.location.href);
+
+    const { data, error } = await db.auth.getSession();
+
+    if (error) {
+        console.error('getSession error:', error);
+        showLogin();
+        return;
+    }
+
+    console.log('Session found:', !!data.session);
+
+    if (data.session) {
+        showApp();
+        await loadThoughts();
+    } else {
+        showLogin();
+    }
+}
+
+// ─── Listen for future auth changes ────────────────
 db.auth.onAuthStateChange((event, session) => {
+    console.log('Auth event:', event, !!session);
+
     if (session) {
         showApp();
-        loadThoughts();
     } else {
         showLogin();
     }
 });
+
+// ─── Start auth AFTER everything is defined ─────────
+initAuth();
 
 
 // ┌─────────────────────────────────────────┐
