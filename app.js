@@ -10,7 +10,18 @@
 // └─────────────────────────────────────────┘
 
 const { createClient } = supabase;
-const db = createClient('https://dmmmpijwxynzmojlnuqr.supabase.co', 'sb_publishable_Ahf30a1YFkbifXcA-AoasA_roTpTpbw');
+const db = createClient(
+    'https://dmmmpijwxynzmojlnuqr.supabase.co',
+    'sb_publishable_Ahf30a1YFkbifXcA-AoasA_roTpTpbw',
+    {
+        auth: {
+            flowType:          'pkce',
+            detectSessionInUrl: true,
+            persistSession:     true,
+            autoRefreshToken:   true,
+        }
+    }
+);
 
 
 
@@ -20,7 +31,6 @@ const db = createClient('https://dmmmpijwxynzmojlnuqr.supabase.co', 'sb_publisha
 
 const loginScreen = document.getElementById('login-screen');
 const appScreen   = document.getElementById('app-screen');
-
 const emailInput  = document.getElementById('email-input');
 const loginBtn    = document.getElementById('login-btn');
 const loginHint   = document.getElementById('login-hint');
@@ -35,13 +45,13 @@ function showLogin() {
     loginScreen.classList.remove('hidden');
 }
 
-// ─── Send magic link ────────────────────────────────
+// ─── Send magic link ──────────────────────────────────────
 loginBtn.addEventListener('click', async () => {
     const email = emailInput.value.trim();
     if (!email) return;
 
     loginBtn.textContent = 'sending...';
-    loginBtn.disabled = true;
+    loginBtn.disabled    = true;
 
     const { error } = await db.auth.signInWithOtp({
         email,
@@ -50,85 +60,38 @@ loginBtn.addEventListener('click', async () => {
         }
     });
 
-    if (error) {
-        console.error('Magic link error:', error);
-        loginHint.textContent = error.message;
-    } else {
-        loginHint.textContent = 'check your email for a link';
-    }
-
-    loginBtn.textContent = 'continue';
     loginBtn.disabled = false;
+
+    if (error) {
+        loginHint.textContent = 'something went wrong, try again';
+        loginBtn.textContent  = 'continue';
+    } else {
+        loginHint.textContent = 'check your email';
+        loginBtn.textContent  = 'continue';
+    }
 });
 
-// ─── Enter key ──────────────────────────────────────
 emailInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') loginBtn.click();
 });
 
-// ─── Restore existing session ───────────────────────
-async function initAuth() {
-    // Supabase magic links put the session in the URL hash.
-    const hash = window.location.hash;
+// ─── Auth state — single source of truth ─────────────────
+let hasLoaded = false;
 
-    if (hash && hash.includes('access_token')) {
-        console.log('Magic link detected');
-
-        // Give Supabase a moment to process the URL.
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        const { data, error } = await db.auth.getSession();
-
-        if (error) {
-            console.error('Magic link session error:', error);
-            showLogin();
-            return;
-        }
-
-        if (data.session) {
-            // Remove tokens from the visible URL.
-            history.replaceState(
-                null,
-                '',
-                window.location.pathname + window.location.search
-            );
-
-            showApp();
-            await loadThoughts();
-            return;
-        }
-    }
-
-    // Normal app launch.
-    const { data, error } = await db.auth.getSession();
-
-    if (error) {
-        console.error('Session error:', error);
-        showLogin();
-        return;
-    }
-
-    if (data.session) {
-        showApp();
-        await loadThoughts();
-    } else {
-        showLogin();
-    }
-}
-
-// ─── Listen for future auth changes ────────────────
 db.auth.onAuthStateChange((event, session) => {
-    console.log('Auth event:', event, !!session);
-
-    if (session) {
+    if (session?.user) {
+        currentUser = session.user;
         showApp();
+        if (!hasLoaded) {
+            hasLoaded = true;
+            loadThoughts();
+        }
     } else {
+        currentUser = null;
+        hasLoaded   = false;
         showLogin();
     }
 });
-
-// ─── Start auth AFTER everything is defined ─────────
-initAuth();
 
 
 // ┌─────────────────────────────────────────┐
@@ -140,6 +103,8 @@ let recognition     = null;
 let isListening     = false;
 let finalTranscript = '';
 let silenceTimer    = null;
+
+let currentUser = null;
 
 
 
@@ -158,13 +123,18 @@ const pullIndicator = document.getElementById('pull-indicator');
 // │  RENDER                                 │
 // └─────────────────────────────────────────┘
 
-async function loadThoughts() {
-    const { data } = await db
-        .from('thoughts')
-        .select('*')
-        .order('urgent', { ascending: false })
-        .order('created_at', { ascending: true });
-    render(data || []);
+async function toggleThought(id) {
+    const el = thoughtsEl.querySelector(`[data-id="${id}"]`);
+    if (!el || !currentUser) return;
+
+    const isDone = !el.classList.contains('done');
+    el.classList.toggle('done', isDone);
+    el.querySelector('.checkbox').classList.toggle('checked', isDone);
+
+    await db.from('thoughts')
+        .update({ done: isDone })
+        .eq('id', id)
+        .eq('user_id', currentUser.id);
 }
 
 function render(thoughts) {
@@ -212,7 +182,7 @@ function createThoughtEl(t, isNew = false) {
 
 async function dump() {
     const text = inputEl.value.trim();
-    if (!text) return;
+    if (!text || !currentUser) return;
 
     inputEl.value = '';
     inputEl.style.height = 'auto';
@@ -220,7 +190,12 @@ async function dump() {
     const items = text.split(/[,;\n]+/)
         .map(i => i.trim())
         .filter(i => i)
-        .map(i => ({ text: i, urgent: false, done: false }));
+        .map(i => ({
+            text:    i,
+            urgent:  false,
+            done:    false,
+            user_id: currentUser.id
+        }));
 
     const { data } = await db
         .from('thoughts')
@@ -336,7 +311,7 @@ function dismissThought(el, id) {
 
     setTimeout(async () => {
         el.remove();
-        await db.from('thoughts').delete().eq('id', id);
+        await db.from('thoughts').delete().eq('id', id).eq('user_id', currentUser.id);
     }, 360);
 }
 
