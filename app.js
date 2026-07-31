@@ -123,18 +123,17 @@ const pullIndicator = document.getElementById('pull-indicator');
 // │  RENDER                                 │
 // └─────────────────────────────────────────┘
 
-async function toggleThought(id) {
-    const el = thoughtsEl.querySelector(`[data-id="${id}"]`);
-    if (!el || !currentUser) return;
+async function loadThoughts() {
+    if (!currentUser) return;
+    
+    const { data } = await db
+        .from('thoughts')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('urgent', { ascending: false })
+        .order('created_at', { ascending: true });
 
-    const isDone = !el.classList.contains('done');
-    el.classList.toggle('done', isDone);
-    el.querySelector('.checkbox').classList.toggle('checked', isDone);
-
-    await db.from('thoughts')
-        .update({ done: isDone })
-        .eq('id', id)
-        .eq('user_id', currentUser.id);
+    render(data || []);
 }
 
 function render(thoughts) {
@@ -182,7 +181,7 @@ function createThoughtEl(t, isNew = false) {
 
 async function dump() {
     const text = inputEl.value.trim();
-    if (!text || !currentUser) return;
+    if (!text) return;
 
     inputEl.value = '';
     inputEl.style.height = 'auto';
@@ -235,13 +234,13 @@ inputEl.addEventListener('keydown', (e) => {
 
 async function toggleThought(id) {
     const el = thoughtsEl.querySelector(`[data-id="${id}"]`);
-    if (!el) return;
+    if (!el || !currentUser) return;
 
     const isDone = !el.classList.contains('done');
     el.classList.toggle('done', isDone);
     el.querySelector('.checkbox').classList.toggle('checked', isDone);
 
-    await db.from('thoughts').update({ done: isDone }).eq('id', id);
+    await db.from('thoughts').update({ done: isDone }).eq('id', id).eq('user_id', currentUser.id);;
 }
 
 
@@ -373,7 +372,7 @@ function editThought(id, span) {
         if (!newText) { span.textContent = original; return; }
         if (newText === original) return;
         span.textContent = newText;
-        await db.from('thoughts').update({ text: newText }).eq('id', id);
+        await db.from('thoughts').update({ text: newText }).eq('id', id).eq('user_id', currentUser.id);
     }
 
     function cancel() {
