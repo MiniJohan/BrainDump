@@ -15,7 +15,7 @@ const db = createClient(
     'sb_publishable_Ahf30a1YFkbifXcA-AoasA_roTpTpbw',
     {
         auth: {
-            flowType:          'pkce',
+            flowType:           'implicit', // ← was 'pkce' — this is the core fix
             detectSessionInUrl: true,
             persistSession:     true,
             autoRefreshToken:   true,
@@ -35,6 +35,9 @@ const emailInput  = document.getElementById('email-input');
 const loginBtn    = document.getElementById('login-btn');
 const loginHint   = document.getElementById('login-hint');
 
+// Are we running as the installed PWA, or in plain Safari?
+const isStandalone = window.navigator.standalone === true;
+
 function showApp() {
     loginScreen.classList.add('hidden');
     appScreen.classList.remove('hidden');
@@ -43,6 +46,20 @@ function showApp() {
 function showLogin() {
     appScreen.classList.add('hidden');
     loginScreen.classList.remove('hidden');
+    // Reset anything showReturnPrompt() may have hidden
+    loginBtn.style.display   = '';
+    loginBtn.textContent     = 'continue';
+    loginBtn.disabled        = false;
+    emailInput.style.display = '';
+    loginHint.textContent    = '';
+}
+
+// Shown in Safari after the magic link is processed —
+// iOS can't open the PWA directly from a link, so we tell the user what to do.
+function showReturnPrompt() {
+    loginBtn.style.display   = 'none';
+    emailInput.style.display = 'none';
+    loginHint.textContent    = '✓ signed in — open the app from your home screen';
 }
 
 // ─── Send magic link ──────────────────────────────────────
@@ -66,7 +83,7 @@ loginBtn.addEventListener('click', async () => {
         loginHint.textContent = 'something went wrong, try again';
         loginBtn.textContent  = 'continue';
     } else {
-        loginHint.textContent = 'check your email';
+        loginHint.textContent = 'check your email — tap the link, then return to the app';
         loginBtn.textContent  = 'continue';
     }
 });
@@ -75,23 +92,49 @@ emailInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') loginBtn.click();
 });
 
-// ─── Auth state — single source of truth ─────────────────
+// ─── Auth state ───────────────────────────────────────────
 let hasLoaded = false;
 
 db.auth.onAuthStateChange((event, session) => {
     if (session?.user) {
         currentUser = session.user;
-        showApp();
-        if (!hasLoaded) {
-            hasLoaded = true;
-            loadThoughts();
+        if (isStandalone) {
+            showApp();
+            if (!hasLoaded) {
+                hasLoaded = true;
+                loadThoughts();
+            }
+        } else {
+            // Auth completed in Safari — guide user back to the PWA
+            showReturnPrompt();
         }
-    } else {
+    } else if (event === 'SIGNED_OUT') {
+        // Only react to an explicit logout, not the ambiguous initial null state.
+        // The getSession() call below handles the startup check.
         currentUser = null;
         hasLoaded   = false;
         showLogin();
     }
 });
+
+// Explicit session check on startup.
+// onAuthStateChange alone is unreliable for picking up sessions
+// that were set in Safari — this call reads localStorage directly.
+(async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if (session?.user) {
+        currentUser = session.user;
+        if (isStandalone && !hasLoaded) {
+            showApp();
+            hasLoaded = true;
+            loadThoughts();
+        } else if (!isStandalone) {
+            showReturnPrompt();
+        }
+    } else {
+        showLogin();
+    }
+})();
 
 
 // ┌─────────────────────────────────────────┐
