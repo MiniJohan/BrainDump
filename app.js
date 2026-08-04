@@ -15,10 +15,9 @@ const db = createClient(
     'sb_publishable_Ahf30a1YFkbifXcA-AoasA_roTpTpbw',
     {
         auth: {
-            flowType:           'implicit', // ← was 'pkce' — this is the core fix
-            detectSessionInUrl: true,
             persistSession:     true,
             autoRefreshToken:   true,
+            detectSessionInUrl: false,
         }
     }
 );
@@ -35,8 +34,8 @@ const emailInput  = document.getElementById('email-input');
 const loginBtn    = document.getElementById('login-btn');
 const loginHint   = document.getElementById('login-hint');
 
-// Are we running as the installed PWA, or in plain Safari?
-const isStandalone = window.navigator.standalone === true;
+let authPhase    = 'email'; // 'email' | 'otp'
+let pendingEmail = '';
 
 function showApp() {
     loginScreen.classList.add('hidden');
@@ -46,35 +45,55 @@ function showApp() {
 function showLogin() {
     appScreen.classList.add('hidden');
     loginScreen.classList.remove('hidden');
-    // Reset anything showReturnPrompt() may have hidden
-    loginBtn.style.display   = '';
-    loginBtn.textContent     = 'continue';
-    loginBtn.disabled        = false;
-    emailInput.style.display = '';
-    loginHint.textContent    = '';
+    enterEmailPhase();
 }
 
-// Shown in Safari after the magic link is processed —
-// iOS can't open the PWA directly from a link, so we tell the user what to do.
-function showReturnPrompt() {
-    loginBtn.style.display   = 'none';
-    emailInput.style.display = 'none';
-    loginHint.textContent    = '✓ signed in — open the app from your home screen';
+function enterEmailPhase() {
+    authPhase               = 'email';
+    emailInput.type         = 'email';
+    emailInput.inputMode    = '';
+    emailInput.maxLength    = 254;
+    emailInput.placeholder  = 'your@email.com';
+    emailInput.autocomplete = 'email';
+    emailInput.value        = '';
+    loginBtn.textContent    = 'continue';
+    loginHint.textContent   = '';
 }
 
-// ─── Send magic link ──────────────────────────────────────
-loginBtn.addEventListener('click', async () => {
+function enterOtpPhase() {
+    authPhase               = 'otp';
+    emailInput.type         = 'text';
+    emailInput.inputMode    = 'numeric';
+    emailInput.maxLength    = 6;
+    emailInput.placeholder  = '6-digit code';
+    emailInput.autocomplete = 'one-time-code';
+    emailInput.value        = '';
+    loginBtn.textContent    = 'verify';
+    loginHint.textContent   = 'check your email';
+    emailInput.focus();
+}
+
+// ─── Button handler ───────────────────────────────────────
+loginBtn.addEventListener('click', () => {
+    if (authPhase === 'email') sendOtp();
+    else verifyOtp();
+});
+
+emailInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') loginBtn.click();
+});
+
+async function sendOtp() {
     const email = emailInput.value.trim();
     if (!email) return;
 
+    pendingEmail         = email;
     loginBtn.textContent = 'sending...';
     loginBtn.disabled    = true;
 
     const { error } = await db.auth.signInWithOtp({
         email,
-        options: {
-            emailRedirectTo: window.location.origin + window.location.pathname
-        }
+        options: { shouldCreateUser: true },
     });
 
     loginBtn.disabled = false;
@@ -83,14 +102,33 @@ loginBtn.addEventListener('click', async () => {
         loginHint.textContent = 'something went wrong, try again';
         loginBtn.textContent  = 'continue';
     } else {
-        loginHint.textContent = 'check your email — tap the link, then return to the app';
-        loginBtn.textContent  = 'continue';
+        enterOtpPhase();
     }
-});
+}
 
-emailInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') loginBtn.click();
-});
+async function verifyOtp() {
+    const token = emailInput.value.trim();
+    if (token.length < 6) return;
+
+    loginBtn.textContent = 'verifying...';
+    loginBtn.disabled    = true;
+
+    const { error } = await db.auth.verifyOtp({
+        email: pendingEmail,
+        token,
+        type:  'email',
+    });
+
+    loginBtn.disabled = false;
+
+    if (error) {
+        loginHint.textContent = 'invalid code — try again';
+        loginBtn.textContent  = 'verify';
+        emailInput.value      = '';
+        emailInput.focus();
+    }
+    // On success, onAuthStateChange fires below and calls showApp()
+}
 
 // ─── Auth state ───────────────────────────────────────────
 let hasLoaded = false;
@@ -98,38 +136,27 @@ let hasLoaded = false;
 db.auth.onAuthStateChange((event, session) => {
     if (session?.user) {
         currentUser = session.user;
-        if (isStandalone) {
-            showApp();
-            if (!hasLoaded) {
-                hasLoaded = true;
-                loadThoughts();
-            }
-        } else {
-            // Auth completed in Safari — guide user back to the PWA
-            showReturnPrompt();
+        showApp();
+        if (!hasLoaded) {
+            hasLoaded = true;
+            loadThoughts();
         }
     } else if (event === 'SIGNED_OUT') {
-        // Only react to an explicit logout, not the ambiguous initial null state.
-        // The getSession() call below handles the startup check.
         currentUser = null;
         hasLoaded   = false;
         showLogin();
     }
 });
 
-// Explicit session check on startup.
-// onAuthStateChange alone is unreliable for picking up sessions
-// that were set in Safari — this call reads localStorage directly.
+// Returning user — session already exists in PWA storage
 (async () => {
     const { data: { session } } = await db.auth.getSession();
     if (session?.user) {
         currentUser = session.user;
-        if (isStandalone && !hasLoaded) {
-            showApp();
+        showApp();
+        if (!hasLoaded) {
             hasLoaded = true;
             loadThoughts();
-        } else if (!isStandalone) {
-            showReturnPrompt();
         }
     } else {
         showLogin();
