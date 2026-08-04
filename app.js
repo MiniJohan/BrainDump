@@ -28,11 +28,12 @@ const db = createClient(
 // │  AUTH                                   │
 // └─────────────────────────────────────────┘
 
-const loginScreen = document.getElementById('login-screen');
-const appScreen   = document.getElementById('app-screen');
-const emailInput  = document.getElementById('email-input');
-const loginBtn    = document.getElementById('login-btn');
-const loginHint   = document.getElementById('login-hint');
+const loginScreen   = document.getElementById('login-screen');
+const appScreen     = document.getElementById('app-screen');
+const emailInput    = document.getElementById('email-input');
+const passwordInput = document.getElementById('password-input'); // ← was missing
+const loginBtn      = document.getElementById('login-btn');
+const loginHint     = document.getElementById('login-hint');
 
 function showApp() {
     loginScreen.classList.add('hidden');
@@ -42,9 +43,9 @@ function showApp() {
 function showLogin() {
     appScreen.classList.add('hidden');
     loginScreen.classList.remove('hidden');
-    loginHint.textContent  = '';
-    loginBtn.textContent   = 'continue';
-    loginBtn.disabled      = false;
+    loginHint.textContent = '';
+    loginBtn.textContent  = 'continue';
+    loginBtn.disabled     = false;
 }
 
 // ─── Login ────────────────────────────────────────────────
@@ -56,7 +57,7 @@ loginBtn.addEventListener('click', async () => {
     loginBtn.textContent = 'signing in...';
     loginBtn.disabled    = true;
 
-    // Try sign in first, create account if user doesn't exist yet
+    // Try sign in first; if credentials wrong, try creating account
     let { error } = await db.auth.signInWithPassword({ email, password });
 
     if (error?.message?.includes('Invalid login credentials')) {
@@ -67,7 +68,6 @@ loginBtn.addEventListener('click', async () => {
             loginBtn.disabled     = false;
             return;
         }
-        // Sign up succeeded — sign in now
         ({ error } = await db.auth.signInWithPassword({ email, password }));
     }
 
