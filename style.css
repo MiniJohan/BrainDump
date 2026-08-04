@@ -170,21 +170,18 @@ body {
 /* ─── Settings button ────────────────────────────────── */
 
 #settings-btn {
-    position: fixed;
-    top: max(16px, env(safe-area-inset-top));
-    right: 16px;
-    z-index: 10;
     display: flex;
     align-items: center;
     justify-content: center;
     width: 36px;
     height: 36px;
+    padding: 0;
     background: none;
     border: none;
     cursor: pointer;
     opacity: 0.35;
     transition: opacity 0.2s;
-    padding: 0;
+    z-index: 10;
 }
 
 #settings-btn:hover  { opacity: 0.7; }
