@@ -471,16 +471,15 @@ function editThought(id, span) {
 
 function buildRecognition() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { micBtn.style.display = 'none'; return null; }
+    if (!SR) return null; // handled in click handler below
 
     const rec = new SR();
     rec.continuous     = true;
     rec.interimResults = true;
-    rec.lang            = getVoiceLang();
+    rec.lang           = getVoiceLang();
 
     rec.onresult = (e) => {
         clearTimeout(silenceTimer);
-
         let interim = '';
         for (let i = e.resultIndex; i < e.results.length; i++) {
             const text = e.results[i][0].transcript;
@@ -490,12 +489,9 @@ function buildRecognition() {
                 interim = text;
             }
         }
-
         inputEl.value = finalTranscript + interim;
         inputEl.style.height = 'auto';
         inputEl.style.height = inputEl.scrollHeight + 'px';
-
-        // ─── Long silence → auto stop ─────────────────────
         silenceTimer = setTimeout(() => {
             if (isListening) rec.stop();
         }, 4000);
@@ -507,35 +503,59 @@ function buildRecognition() {
         inputEl.style.fontStyle = '';
         clearTimeout(silenceTimer);
         finalTranscript = '';
-        // ─── Delay lets last onresult fire before dump ────
         setTimeout(() => dump(), 150);
     };
 
-    rec.onerror = () => {
+    rec.onerror = (e) => {
         isListening = false;
         micBtn.classList.remove('listening');
         inputEl.style.fontStyle = '';
         clearTimeout(silenceTimer);
         finalTranscript = '';
         inputEl.value = '';
+
+        if (e.error === 'not-allowed' || e.error === 'permission-denied') {
+            showMicMessage('mic blocked — allow access in browser settings');
+        } else if (e.error === 'no-speech') {
+            // Silence timeout — quiet reset is fine
+        } else {
+            showMicMessage('mic error: ' + e.error);
+        }
     };
 
     return rec;
 }
 
+function showMicMessage(msg) {
+    inputEl.placeholder = msg;
+    setTimeout(() => { inputEl.placeholder = 'empty anything...'; }, 4000);
+}
+
 micBtn.addEventListener('click', () => {
-    // ─── Lazy init — only creates on first tap ────────────
     if (!recognition) recognition = buildRecognition();
-    if (!recognition) return;
+
+    if (!recognition) {
+        showMicMessage('voice not supported on this browser');
+        return;
+    }
 
     if (isListening) {
         recognition.stop();
     } else {
-        finalTranscript     = '';
-        inputEl.value       = '';
+        finalTranscript         = '';
+        inputEl.value           = '';
         inputEl.style.fontStyle = 'italic';
         micBtn.classList.add('listening');
-        recognition.start();
         isListening = true;
+
+        try {
+            recognition.start();
+        } catch (err) {
+            // start() throws if called while already starting — force a clean rebuild
+            isListening = false;
+            micBtn.classList.remove('listening');
+            inputEl.style.fontStyle = '';
+            recognition = null;
+        }
     }
 });
