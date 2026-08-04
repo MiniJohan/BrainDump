@@ -136,6 +136,64 @@ const pullIndicator = document.getElementById('pull-indicator');
 
 
 // ┌─────────────────────────────────────────┐
+// │  SETTINGS                               │
+// └─────────────────────────────────────────┘
+
+const settingsBtn     = document.getElementById('settings-btn');
+const settingsOverlay = document.getElementById('settings-overlay');
+const settingsSheet   = document.getElementById('settings-sheet');
+const settingsClose   = document.getElementById('settings-close');
+const langSelect      = document.getElementById('lang-select');
+const clearDoneBtn    = document.getElementById('clear-done-btn');
+const signoutBtn      = document.getElementById('signout-btn');
+
+function openSettings() {
+    langSelect.value = localStorage.getItem('empty_lang') || 'auto';
+    settingsOverlay.classList.remove('hidden');
+    settingsSheet.classList.remove('hidden');
+}
+
+function closeSettings() {
+    settingsOverlay.classList.add('hidden');
+    settingsSheet.classList.add('hidden');
+}
+
+function getVoiceLang() {
+    const stored = localStorage.getItem('empty_lang');
+    if (!stored || stored === 'auto') return navigator.language || 'en-US';
+    return stored;
+}
+
+settingsBtn.addEventListener('click', openSettings);
+settingsClose.addEventListener('click', closeSettings);
+settingsOverlay.addEventListener('click', closeSettings);
+
+langSelect.addEventListener('change', () => {
+    localStorage.setItem('empty_lang', langSelect.value);
+    // Force rebuild on next mic tap so new language is picked up
+    if (isListening && recognition) recognition.stop();
+    recognition = null;
+});
+
+clearDoneBtn.addEventListener('click', async () => {
+    if (!currentUser) return;
+    const doneEls = [...thoughtsEl.querySelectorAll('.thought.done')];
+    if (!doneEls.length) { closeSettings(); return; }
+    const ids = doneEls.map(el => el.dataset.id);
+    doneEls.forEach(el => el.remove());
+    await db.from('thoughts').delete().in('id', ids).eq('user_id', currentUser.id);
+    closeSettings();
+});
+
+signoutBtn.addEventListener('click', async () => {
+    closeSettings();
+    await db.auth.signOut();
+    // onAuthStateChange fires → showLogin()
+});
+
+
+
+// ┌─────────────────────────────────────────┐
 // │  RENDER                                 │
 // └─────────────────────────────────────────┘
 
@@ -418,7 +476,7 @@ function buildRecognition() {
     const rec = new SR();
     rec.continuous     = true;
     rec.interimResults = true;
-    rec.lang           = 'sv-SE';
+    rec.lang            = getVoiceLang();
 
     rec.onresult = (e) => {
         clearTimeout(silenceTimer);

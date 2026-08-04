@@ -37,6 +37,15 @@
 
     <div id="app-screen" class="hidden">
 
+        <button id="settings-btn" aria-label="Settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 2v2m0 16v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42
+                         M2 12h2m16 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+            </svg>
+        </button>
+
         <div id="input-area">
             <textarea id="input" placeholder="empty anything..." rows="1"></textarea>
             <button id="mic-btn">
@@ -52,8 +61,44 @@
         <div id="thoughts"></div>
     </div>
 
+    <!-- ─── Settings sheet ───────────────────────── -->
+    <div id="settings-overlay" class="hidden"></div>
+
+    <div id="settings-sheet" class="hidden">
+        <div class="settings-handle"></div>
+
+        <div class="settings-row settings-title">
+            <span>settings</span>
+            <button id="settings-close">✕</button>
+        </div>
+
+        <div class="settings-row">
+            <label for="lang-select">voice language</label>
+            <select id="lang-select">
+                <option value="auto">auto</option>
+                <option value="sv-SE">Swedish</option>
+                <option value="en-US">English (US)</option>
+                <option value="en-GB">English (UK)</option>
+                <option value="nb-NO">Norwegian</option>
+                <option value="da-DK">Danish</option>
+                <option value="fi-FI">Finnish</option>
+                <option value="de-DE">German</option>
+                <option value="fr-FR">French</option>
+                <option value="es-ES">Spanish</option>
+            </select>
+        </div>
+
+        <div class="settings-row">
+            <button id="clear-done-btn" class="settings-action">clear completed</button>
+        </div>
+
+        <div class="settings-row">
+            <button id="signout-btn" class="settings-action settings-danger">sign out</button>
+        </div>
+    </div>
+
     
-    <script src="app.js?v=3"></script>
+    <script src="app.js?v=5"></script>
 </body>
 
 </html>
