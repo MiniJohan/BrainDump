@@ -34,9 +34,6 @@ const emailInput  = document.getElementById('email-input');
 const loginBtn    = document.getElementById('login-btn');
 const loginHint   = document.getElementById('login-hint');
 
-let authPhase    = 'email'; // 'email' | 'otp'
-let pendingEmail = '';
-
 function showApp() {
     loginScreen.classList.add('hidden');
     appScreen.classList.remove('hidden');
@@ -45,90 +42,46 @@ function showApp() {
 function showLogin() {
     appScreen.classList.add('hidden');
     loginScreen.classList.remove('hidden');
-    enterEmailPhase();
+    loginHint.textContent  = '';
+    loginBtn.textContent   = 'continue';
+    loginBtn.disabled      = false;
 }
 
-function enterEmailPhase() {
-    authPhase               = 'email';
-    emailInput.type         = 'email';
-    emailInput.inputMode    = '';
-    emailInput.maxLength    = 254;
-    emailInput.placeholder  = 'your@email.com';
-    emailInput.autocomplete = 'email';
-    emailInput.value        = '';
-    loginBtn.textContent    = 'continue';
-    loginHint.textContent   = '';
-}
+// ─── Login ────────────────────────────────────────────────
+loginBtn.addEventListener('click', async () => {
+    const email    = emailInput.value.trim();
+    const password = passwordInput.value;
+    if (!email || !password) return;
 
-function enterOtpPhase() {
-    authPhase               = 'otp';
-    emailInput.type         = 'text';
-    emailInput.inputMode    = 'numeric';
-    emailInput.maxLength    = 6;
-    emailInput.placeholder  = '6-digit code';
-    emailInput.autocomplete = 'one-time-code';
-    emailInput.value        = '';
-    loginBtn.textContent    = 'verify';
-    loginHint.textContent   = 'check your email';
-    emailInput.focus();
-}
-
-// ─── Button handler ───────────────────────────────────────
-loginBtn.addEventListener('click', () => {
-    if (authPhase === 'email') sendOtp();
-    else verifyOtp();
-});
-
-emailInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') loginBtn.click();
-});
-
-async function sendOtp() {
-    const email = emailInput.value.trim();
-    if (!email) return;
-
-    pendingEmail         = email;
-    loginBtn.textContent = 'sending...';
+    loginBtn.textContent = 'signing in...';
     loginBtn.disabled    = true;
 
-    const { error } = await db.auth.signInWithOtp({
-        email,
-        options: { shouldCreateUser: true },
-    });
+    // Try sign in first, create account if user doesn't exist yet
+    let { error } = await db.auth.signInWithPassword({ email, password });
 
-    loginBtn.disabled = false;
+    if (error?.message?.includes('Invalid login credentials')) {
+        const { error: signUpError } = await db.auth.signUp({ email, password });
+        if (signUpError) {
+            loginHint.textContent = signUpError.message;
+            loginBtn.textContent  = 'continue';
+            loginBtn.disabled     = false;
+            return;
+        }
+        // Sign up succeeded — sign in now
+        ({ error } = await db.auth.signInWithPassword({ email, password }));
+    }
 
     if (error) {
-        loginHint.textContent = 'something went wrong, try again';
+        loginHint.textContent = 'wrong password — try again';
         loginBtn.textContent  = 'continue';
-    } else {
-        enterOtpPhase();
+        loginBtn.disabled     = false;
+        return;
     }
-}
+    // onAuthStateChange fires and calls showApp()
+});
 
-async function verifyOtp() {
-    const token = emailInput.value.trim();
-    if (token.length < 6) return;
-
-    loginBtn.textContent = 'verifying...';
-    loginBtn.disabled    = true;
-
-    const { error } = await db.auth.verifyOtp({
-        email: pendingEmail,
-        token,
-        type:  'email',
-    });
-
-    loginBtn.disabled = false;
-
-    if (error) {
-        loginHint.textContent = 'invalid code — try again';
-        loginBtn.textContent  = 'verify';
-        emailInput.value      = '';
-        emailInput.focus();
-    }
-    // On success, onAuthStateChange fires below and calls showApp()
-}
+emailInput.addEventListener('keydown',    (e) => { if (e.key === 'Enter') loginBtn.click(); });
+passwordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginBtn.click(); });
 
 // ─── Auth state ───────────────────────────────────────────
 let hasLoaded = false;
@@ -137,10 +90,7 @@ db.auth.onAuthStateChange((event, session) => {
     if (session?.user) {
         currentUser = session.user;
         showApp();
-        if (!hasLoaded) {
-            hasLoaded = true;
-            loadThoughts();
-        }
+        if (!hasLoaded) { hasLoaded = true; loadThoughts(); }
     } else if (event === 'SIGNED_OUT') {
         currentUser = null;
         hasLoaded   = false;
@@ -148,16 +98,12 @@ db.auth.onAuthStateChange((event, session) => {
     }
 });
 
-// Returning user — session already exists in PWA storage
 (async () => {
     const { data: { session } } = await db.auth.getSession();
     if (session?.user) {
         currentUser = session.user;
         showApp();
-        if (!hasLoaded) {
-            hasLoaded = true;
-            loadThoughts();
-        }
+        if (!hasLoaded) { hasLoaded = true; loadThoughts(); }
     } else {
         showLogin();
     }
