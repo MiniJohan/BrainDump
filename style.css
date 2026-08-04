@@ -172,7 +172,7 @@ body {
 #settings-btn {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: center;
     width: 36px;
     height: 36px;
     padding: 8px;
@@ -211,7 +211,7 @@ body {
     left: 0;
     right: 0;
     z-index: 21;
-    background: #1a1a1a;
+    background: rgba(0, 0, 0, 0.75);
     border-radius: 16px 16px 0 0;
     padding: 12px 24px max(24px, env(safe-area-inset-bottom));
     display: flex;
@@ -232,7 +232,7 @@ body {
     font-weight: 500;
     color: #888;
     letter-spacing: 0.05em;
-    text-transform: lowercase;
+    text-transform: capitalize;
     margin-bottom: 8px;
 }
 
@@ -278,12 +278,13 @@ body {
     padding: 13px;
     cursor: pointer;
     text-align: center;
+    text-transform: capitalize;
     transition: background 0.15s;
 }
 
-.settings-action:active { background: #2a2a2a; }
+.settings-action:active { background: #2a2a2a; text-transform: capitalize; }
 
-.settings-danger       { color: #e05555; }
+.settings-danger       { color: #e05555; text-transform: capitalize; }
 .settings-danger:active { background: rgba(224, 85, 85, 0.1); }
 
 #settings-close {
