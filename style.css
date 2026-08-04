@@ -263,6 +263,7 @@ body {
     padding: 6px 10px;
     cursor: pointer;
     outline: none;
+    text-transform: capitalize;
     -webkit-appearance: none;
     appearance: none;
 }
