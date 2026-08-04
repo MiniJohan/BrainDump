@@ -61,7 +61,7 @@ body {
     margin-bottom: 24px;
 }
 
-#email-input {
+#email-input, #password-input {
     width: 100%;
     background: var(--surface);
     border: none;
@@ -74,7 +74,7 @@ body {
     text-align: center;
 }
 
-#email-input::placeholder {
+#email-input::placeholder, #password-input::placeholder {
     color: var(--muted);
 }
 
